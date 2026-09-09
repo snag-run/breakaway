@@ -76,6 +76,36 @@ defmodule Breakaway.World.InteractionsTest do
       assert avatar.d == :down
     end
 
+    test "you sit the way the chair is pointing", %{space: space, user: user} do
+      # A second chair, turned to face up the way a desk chair is.
+      Worlds.create_prop!(
+        %{space_id: space.id, kind: :office_chair, x: 4, y: 8, solid: true, facing: :up},
+        authorize?: false
+      )
+
+      case Registry.lookup(Breakaway.World.Registry, space.id) do
+        [{pid, _}] -> DynamicSupervisor.terminate_child(Breakaway.World.SpaceSupervisor, pid)
+        [] -> :ok
+      end
+
+      {:ok, _} = World.join(space.id, user)
+
+      # Walk down-left so the up-facing chair at (4,8) is the nearest seat.
+      World.move(space.id, user.id, {-1, 1})
+      Process.sleep(180)
+      World.move(space.id, user.id, {0, 0})
+      Process.sleep(120)
+
+      assert {:ok, "Sitting"} = World.interact(space.id, user.id)
+      Process.sleep(80)
+
+      avatar = me(space, user)
+      assert avatar.sit
+      assert avatar.d == :up, "should face the way the chair points"
+      assert_in_delta avatar.x, 4.5, 0.01
+      assert_in_delta avatar.y, 8.5, 0.01
+    end
+
     test "standing up moves off the chair rather than leaving you inside it",
          %{space: space, user: user} do
       {:ok, _} = World.join(space.id, user)

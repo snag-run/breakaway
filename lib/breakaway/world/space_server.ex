@@ -311,7 +311,7 @@ defmodule Breakaway.World.SpaceServer do
         avatar
         | activity: activity,
           seated?: true,
-          dir: Interactions.seated_facing(),
+          dir: prop.facing,
           x: prop.x + w / 2,
           y: prop.y + h / 2,
           input: {0, 0},

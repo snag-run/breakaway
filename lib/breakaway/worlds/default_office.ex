@@ -256,14 +256,15 @@ defmodule Breakaway.Worlds.DefaultOffice do
     end)
   end
 
-  # Four banks of hot desks on the open floor.
+  # Four banks of hot desks on the open floor. The chairs sit below their desk,
+  # so they face up into it — you work with your back to the room.
   defp desk_props do
     for bank_x <- [3, 11, 27, 35], row <- [13, 17] do
       [
         %{kind: :desk, x: bank_x, y: row},
-        %{kind: :office_chair, x: bank_x, y: row + 1},
+        %{kind: :office_chair, x: bank_x, y: row + 1, facing: :up},
         %{kind: :desk, x: bank_x + 3, y: row},
-        %{kind: :office_chair, x: bank_x + 3, y: row + 1}
+        %{kind: :office_chair, x: bank_x + 3, y: row + 1, facing: :up}
       ]
     end
     |> List.flatten()
@@ -311,11 +312,11 @@ defmodule Breakaway.Worlds.DefaultOffice do
   defp focus_props do
     [
       %{kind: :desk, x: 31, y: 23},
-      %{kind: :office_chair, x: 31, y: 25},
+      %{kind: :office_chair, x: 31, y: 25, facing: :up},
       %{kind: :desk, x: 35, y: 23},
-      %{kind: :office_chair, x: 35, y: 25},
+      %{kind: :office_chair, x: 35, y: 25, facing: :up},
       %{kind: :desk, x: 39, y: 23},
-      %{kind: :office_chair, x: 39, y: 25},
+      %{kind: :office_chair, x: 39, y: 25, facing: :up},
       %{kind: :lamp, x: 33, y: 29},
       %{kind: :plant_small, x: 37, y: 29}
     ]

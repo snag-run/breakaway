@@ -95,89 +95,94 @@
         "h": 1
       },
       "chair": {
-        "index": 3,
+        "index": 4,
         "w": 1,
         "h": 1
       },
       "meeting_table": {
-        "index": 4,
+        "index": 5,
         "w": 2,
         "h": 2
       },
       "couch": {
-        "index": 5,
+        "index": 6,
         "w": 2,
         "h": 1
       },
       "coffee_table": {
-        "index": 6,
+        "index": 7,
         "w": 1,
         "h": 1
       },
       "whiteboard": {
-        "index": 7,
-        "w": 2,
-        "h": 1
-      },
-      "tv_screen": {
         "index": 8,
         "w": 2,
         "h": 1
       },
-      "bookshelf": {
+      "tv_screen": {
         "index": 9,
-        "w": 1,
+        "w": 2,
         "h": 1
       },
-      "plant_small": {
+      "bookshelf": {
         "index": 10,
         "w": 1,
         "h": 1
       },
-      "plant_tall": {
+      "plant_small": {
         "index": 11,
         "w": 1,
         "h": 1
       },
-      "coffee_machine": {
+      "plant_tall": {
         "index": 12,
         "w": 1,
         "h": 1
       },
-      "water_cooler": {
+      "coffee_machine": {
         "index": 13,
         "w": 1,
         "h": 1
       },
-      "fridge": {
+      "water_cooler": {
         "index": 14,
         "w": 1,
         "h": 1
       },
-      "printer": {
+      "fridge": {
         "index": 15,
         "w": 1,
         "h": 1
       },
-      "server_rack": {
+      "printer": {
         "index": 16,
         "w": 1,
         "h": 1
       },
-      "beanbag": {
+      "server_rack": {
         "index": 17,
         "w": 1,
         "h": 1
       },
-      "arcade": {
+      "beanbag": {
         "index": 18,
         "w": 1,
         "h": 1
       },
-      "lamp": {
+      "arcade": {
         "index": 19,
         "w": 1,
         "h": 1
+      },
+      "lamp": {
+        "index": 20,
+        "w": 1,
+        "h": 1
+      }
+    },
+    "variants": {
+      "office_chair": {
+        "up": 3
       }
     }
   },

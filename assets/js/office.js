@@ -304,12 +304,20 @@ export const Office = {
     }
   },
 
+  // A prop's sprite depends on which way it is turned. Only some orientations
+  // are drawn; anything else falls back to the default sprite.
+  spriteIndex(kind, facing, meta) {
+    const variant = this.atlas.props.variants?.[kind]?.[facing];
+    return variant === undefined ? meta.index : variant;
+  },
+
   drawProp(ctx, p, meta) {
     const cell = this.atlas.props.cell;
     const cols = this.atlas.props.columns;
+    const index = this.spriteIndex(p.kind, p.facing, meta);
     ctx.drawImage(
       this.sheets.props,
-      (meta.index % cols) * cell, Math.floor(meta.index / cols) * cell,
+      (index % cols) * cell, Math.floor(index / cols) * cell,
       meta.w * TILE, meta.h * TILE,
       p.x * TILE, p.y * TILE,
       meta.w * TILE, meta.h * TILE

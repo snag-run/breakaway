@@ -59,12 +59,23 @@ const props = {
 
   office_chair: { w: 1, h: 1, draw(s) {
     shadowUnder(s, 6, 24, 20, 6);
-    s.roundRect(7, 2, 18, 14, 4, C.fabric);       // backrest
+    s.roundRect(7, 2, 18, 14, 4, C.fabric);       // backrest, away from the viewer
     s.roundRect(9, 4, 14, 9, 3, shade(C.fabric, 1.15));
     s.roundRect(6, 16, 20, 9, 4, C.fabricLo);     // seat
     s.rect(15, 25, 2, 4, C.metalDark);            // post
     s.hline(9, 29, 14, C.metalDark);              // base
     s.px(9, 30, C.metalDark); s.px(22, 30, C.metalDark);
+  }},
+
+  // Same chair turned to face away from the camera — for desks, where you sit
+  // with your back to the room. The backrest is nearest the viewer.
+  office_chair_up: { w: 1, h: 1, variantOf: "office_chair", facing: "up", draw(s) {
+    shadowUnder(s, 6, 24, 20, 6);
+    s.rect(15, 12, 2, 6, C.metalDark);            // post, behind everything
+    s.hline(9, 8, 14, C.metalDark);               // base splayed away from us
+    s.roundRect(6, 6, 20, 9, 4, C.fabricLo);      // seat
+    s.roundRect(7, 14, 18, 15, 4, C.fabric);      // backrest, toward the viewer
+    s.roundRect(9, 17, 14, 9, 3, shade(C.fabric, 1.15));
   }},
 
   chair: { w: 1, h: 1, draw(s) {
@@ -238,15 +249,31 @@ const props = {
   }},
 };
 
-export const PROP_NAMES = Object.keys(props);
+const ALL_SPRITES = Object.keys(props);
+
+// Placeable kinds. Oriented variants are art only — a chair facing up is still
+// a chair, so it must not become a separate thing you can put on the floor.
+export const PROP_NAMES = ALL_SPRITES.filter((n) => !props[n].variantOf);
+
 export const PROP_META = Object.fromEntries(
-  PROP_NAMES.map((n, i) => [n, { index: i, w: props[n].w, h: props[n].h }])
+  PROP_NAMES.map((n) => [
+    n,
+    { index: ALL_SPRITES.indexOf(n), w: props[n].w, h: props[n].h },
+  ])
 );
 
+// baseKind -> { facing -> spritesheet cell index }
+export const PROP_VARIANTS = ALL_SPRITES.reduce((acc, name) => {
+  const { variantOf, facing } = props[name];
+  if (!variantOf) return acc;
+  acc[variantOf] = { ...(acc[variantOf] || {}), [facing]: ALL_SPRITES.indexOf(name) };
+  return acc;
+}, {});
+
 export function buildFurniture() {
-  const rows = Math.ceil(PROP_NAMES.length / COLS);
+  const rows = Math.ceil(ALL_SPRITES.length / COLS);
   const sheet = new Surface(COLS * CELL, rows * CELL);
-  PROP_NAMES.forEach((name, i) => {
+  ALL_SPRITES.forEach((name, i) => {
     const cell = new Surface(CELL, CELL);
     props[name].draw(cell);
     sheet.blit(cell, (i % COLS) * CELL, Math.floor(i / COLS) * CELL);

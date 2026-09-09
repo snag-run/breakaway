@@ -23,7 +23,7 @@ defmodule Breakaway.Worlds.Prop do
     default_accept []
 
     create :create do
-      accept [:space_id, :kind, :x, :y, :solid]
+      accept [:space_id, :kind, :x, :y, :solid, :facing]
     end
   end
 
@@ -48,6 +48,18 @@ defmodule Breakaway.Worlds.Prop do
 
     attribute :x, :integer, allow_nil?: false, public?: true
     attribute :y, :integer, allow_nil?: false, public?: true
+
+    attribute :facing, :atom do
+      allow_nil? false
+      default :down
+      public? true
+      constraints one_of: [:up, :down, :left, :right]
+
+      description """
+      Which way the furniture is turned. For seats this is also the direction
+      the person sitting on it looks, so a desk chair faces :up into the desk.
+      """
+    end
 
     attribute :solid, :boolean do
       allow_nil? false

@@ -37,13 +37,10 @@ defmodule Breakaway.World.Interactions do
   @doc """
   Whether using this puts the avatar *on* the furniture.
 
-  Seats snap the avatar to the middle of the prop and face it toward the
-  camera, matching how the seat sprites are drawn.
+  Seats snap the avatar to the middle of the prop and turn it to the prop's
+  own `facing`, so you sit the way the chair is pointing.
   """
   def seat?(kind), do: kind in @seats
-
-  @doc "Which way you face once seated. Every seat sprite has its back to the top."
-  def seated_facing, do: :down
 
   @doc "How close (in tiles, centre to centre) you must be to use something."
   def reach, do: 1.7

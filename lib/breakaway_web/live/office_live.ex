@@ -174,7 +174,7 @@ defmodule BreakawayWeb.OfficeLive do
   defp push_map(socket, space, zones) do
     props =
       case Worlds.list_props(query: [filter: [space_id: space.id]], authorize?: false) do
-        {:ok, props} -> Enum.map(props, &%{kind: &1.kind, x: &1.x, y: &1.y})
+        {:ok, props} -> Enum.map(props, &%{kind: &1.kind, x: &1.x, y: &1.y, facing: &1.facing})
         _ -> []
       end
 

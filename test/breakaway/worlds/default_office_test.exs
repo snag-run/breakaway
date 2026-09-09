@@ -49,6 +49,40 @@ defmodule Breakaway.Worlds.DefaultOfficeTest do
     assert length(meetings) >= 3
   end
 
+  test "desk chairs face into their desk, not away from it", %{plan: plan} do
+    chairs = Enum.filter(plan.props, &(&1.kind == :office_chair))
+    desks = MapSet.new(plan.props, fn p -> {p.kind, p.x, p.y} end)
+
+    # Every chair sitting directly below a desk must face up into it.
+    at_a_desk =
+      Enum.filter(chairs, fn c ->
+        MapSet.member?(desks, {:desk, c.x, c.y - 1})
+      end)
+
+    assert at_a_desk != [], "expected some chairs to be paired with desks"
+
+    for chair <- at_a_desk do
+      assert Map.get(chair, :facing) == :up,
+             "chair at #{chair.x},#{chair.y} sits below a desk but faces #{inspect(Map.get(chair, :facing))}"
+    end
+  end
+
+  test "meeting room chairs above the table still face it", %{plan: plan} do
+    tables = MapSet.new(plan.props, fn p -> {p.kind, p.x, p.y} end)
+
+    above_a_table =
+      Enum.filter(plan.props, fn p ->
+        p.kind == :office_chair and
+          Enum.any?(0..1, &MapSet.member?(tables, {:meeting_table, p.x - &1, p.y + 1}))
+      end)
+
+    assert above_a_table != []
+
+    for chair <- above_a_table do
+      assert Map.get(chair, :facing, :down) == :down
+    end
+  end
+
   test "props are known kinds placed inside the floor", %{plan: plan} do
     known = MapSet.new(Atlas.prop_names())
 
