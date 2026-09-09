@@ -173,7 +173,7 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
     end
   end
 
-  defp configured_lobby_id, do: Application.get_env(:breakaway, :discord, [])[:lobby_channel_id]
+  defp configured_lobby_id, do: present(discord_config()[:lobby_channel_id])
 
   # --- resolution ---------------------------------------------------------------
 
@@ -186,11 +186,18 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
   end
 
   defp resolve_guild(opts) do
-    case opts[:guild] || Application.get_env(:breakaway, :discord, [])[:guild_id] do
+    case present(opts[:guild]) || present(discord_config()[:guild_id]) do
       nil -> {:error, "No guild. Pass --guild ID or set DISCORD_GUILD_ID in .env."}
       guild_id -> {:ok, to_string(guild_id)}
     end
   end
+
+  defp discord_config, do: Application.get_env(:breakaway, :discord, [])
+
+  # A key left blank in .env reaches us as "", which is truthy. Absent is
+  # absent however it was spelled.
+  defp present(value) when value in [nil, ""], do: nil
+  defp present(value), do: value
 
   defp resolve_space(opts) do
     result =

@@ -41,13 +41,22 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
+  # A key left blank means "not set" — without this it arrives as "", which is
+  # truthy and reads as configured.
+  env = fn name ->
+    case System.get_env(name) do
+      "" -> nil
+      value -> value
+    end
+  end
+
   config :breakaway, :discord,
-    client_id: System.get_env("DISCORD_CLIENT_ID"),
-    client_secret: System.get_env("DISCORD_CLIENT_SECRET"),
-    redirect_uri: System.get_env("DISCORD_REDIRECT_URI"),
-    bot_token: System.get_env("DISCORD_BOT_TOKEN"),
-    guild_id: System.get_env("DISCORD_GUILD_ID"),
-    lobby_channel_id: System.get_env("DISCORD_LOBBY_CHANNEL_ID")
+    client_id: env.("DISCORD_CLIENT_ID"),
+    client_secret: env.("DISCORD_CLIENT_SECRET"),
+    redirect_uri: env.("DISCORD_REDIRECT_URI"),
+    bot_token: env.("DISCORD_BOT_TOKEN"),
+    guild_id: env.("DISCORD_GUILD_ID"),
+    lobby_channel_id: env.("DISCORD_LOBBY_CHANNEL_ID")
 
   database_url =
     System.get_env("DATABASE_URL") ||

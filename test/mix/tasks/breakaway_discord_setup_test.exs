@@ -387,4 +387,36 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
 
     assert output() =~ "Would create the Breakaway category"
   end
+
+  test "a blank DISCORD_LOBBY_CHANNEL_ID counts as unset, not as configured", %{space: space} do
+    previous = Application.get_env(:breakaway, :discord)
+    Application.put_env(:breakaway, :discord, Keyword.put(previous, :lobby_channel_id, ""))
+
+    Req.Test.stub(Breakaway.Discord.Client, fn conn ->
+      case conn.method do
+        "GET" ->
+          Req.Test.json(conn, [])
+
+        "POST" ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          %{"name" => name} = Jason.decode!(body)
+          Req.Test.json(conn, %{"id" => "chan-#{name}", "name" => name, "type" => 2})
+      end
+    end)
+
+    Setup.run(["--space", space.slug])
+
+    out = output()
+    refute out =~ "already set"
+    assert out =~ "DISCORD_LOBBY_CHANNEL_ID=chan-lobby"
+  end
+
+  test "a blank DISCORD_GUILD_ID counts as unset, not as configured", %{space: space} do
+    previous = Application.get_env(:breakaway, :discord)
+    Application.put_env(:breakaway, :discord, Keyword.put(previous, :guild_id, ""))
+
+    assert_raise Mix.Error, ~r/--guild/, fn ->
+      Setup.run(["--space", space.slug])
+    end
+  end
 end

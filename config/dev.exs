@@ -100,11 +100,20 @@ end
 # Discord OAuth + bot credentials. Set these in .env (see README) — the app
 # boots without them, it just cannot sign anyone in or move anyone between
 # voice channels until they are present.
+# A key left blank — `DISCORD_GUILD_ID=` in .env, or an empty export from
+# direnv — means "not set". Without this it arrives as "", which is truthy.
+env = fn name ->
+  case System.get_env(name) do
+    "" -> nil
+    value -> value
+  end
+end
+
 config :breakaway, :discord,
-  client_id: System.get_env("DISCORD_CLIENT_ID"),
-  client_secret: System.get_env("DISCORD_CLIENT_SECRET"),
+  client_id: env.("DISCORD_CLIENT_ID"),
+  client_secret: env.("DISCORD_CLIENT_SECRET"),
   redirect_uri:
-    System.get_env("DISCORD_REDIRECT_URI") || "http://localhost:4000/auth/user/discord/callback",
-  bot_token: System.get_env("DISCORD_BOT_TOKEN"),
-  guild_id: System.get_env("DISCORD_GUILD_ID"),
-  lobby_channel_id: System.get_env("DISCORD_LOBBY_CHANNEL_ID")
+    env.("DISCORD_REDIRECT_URI") || "http://localhost:4000/auth/user/discord/callback",
+  bot_token: env.("DISCORD_BOT_TOKEN"),
+  guild_id: env.("DISCORD_GUILD_ID"),
+  lobby_channel_id: env.("DISCORD_LOBBY_CHANNEL_ID")
