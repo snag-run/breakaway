@@ -100,6 +100,9 @@ defmodule Breakaway.MixProject do
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind breakaway", "esbuild breakaway"],
       "assets.deploy": [
+        # Compile first: colocated hook CSS/JS is written during compilation,
+        # so tailwind cannot resolve it in a fresh prod build otherwise.
+        "compile",
         "tailwind breakaway --minify",
         "esbuild breakaway --minify",
         "phx.digest"

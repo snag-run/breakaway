@@ -31,6 +31,12 @@ breakaway-*.tar
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 
+# Digested and gzipped copies produced by `mix phx.digest`. The generated
+# spritesheets in priv/static/images are source and stay committed; these
+# build outputs do not.
+/priv/static/**/*.gz
+/priv/static/**/*-????????????????????????????????.*
+
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/

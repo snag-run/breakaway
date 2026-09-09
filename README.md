@@ -169,6 +169,38 @@ regenerating updates the collision map with it.
 To change the look, edit `assets/gen/tiles.mjs`, `furniture.mjs` or
 `avatars.mjs` and re-run the task.
 
+## Deploying
+
+```bash
+mix assets.deploy
+MIX_ENV=prod mix release
+```
+
+or build the generated `Dockerfile`. Then set, at minimum:
+
+| | |
+| --- | --- |
+| `DATABASE_URL` | `ecto://user:pass@host/breakaway` |
+| `SECRET_KEY_BASE` | `mix phx.gen.secret` |
+| `TOKEN_SIGNING_SECRET` | `mix phx.gen.secret` |
+| `PHX_HOST` | the public hostname |
+| `PHX_SERVER` | `true` |
+| `DISCORD_*` | see `.env.example` |
+| `DNS_CLUSTER_QUERY` | optional, to find sibling nodes |
+
+Run migrations with `bin/migrate`, then `bin/server`. `GET /health` checks the
+database and answers 503 if it cannot be reached, so a load balancer never
+routes traffic to a node that can only serve errors.
+
+Two things to get right:
+
+- **`DISCORD_REDIRECT_URI` must exactly match** a redirect registered on the
+  Discord application — `https://your-host/auth/user/discord/callback`. A
+  mismatch fails at the callback with a Discord error, not in your logs.
+- The dev sign-in is compiled out: `/dev/sign-in-as/...` returns 404 when
+  `:dev_routes` is off, and the action behind it refuses independently. Both
+  hold in a release built with `MIX_ENV=prod`.
+
 ## Tests
 
 ```bash

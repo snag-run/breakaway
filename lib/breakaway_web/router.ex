@@ -21,6 +21,12 @@ defmodule BreakawayWeb.Router do
     plug :set_actor, :user
   end
 
+  # No pipeline: a health check should not need a session, and should stay up
+  # even if something in the browser stack is unhappy.
+  scope "/", BreakawayWeb do
+    get "/health", PageController, :health
+  end
+
   scope "/", BreakawayWeb do
     pipe_through :browser
 

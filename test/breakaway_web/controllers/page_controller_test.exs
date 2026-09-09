@@ -11,6 +11,12 @@ defmodule BreakawayWeb.PageControllerTest do
     assert html =~ "Sign in with Discord"
   end
 
+  test "the health check reports ok while the database is reachable", %{conn: conn} do
+    conn = get(conn, ~p"/health")
+
+    assert response(conn, 200) == "ok"
+  end
+
   test "someone already signed in goes straight to the office", %{conn: conn} do
     conn = conn |> log_in_user(user_fixture()) |> get(~p"/")
 
