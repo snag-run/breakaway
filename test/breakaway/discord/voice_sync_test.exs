@@ -23,6 +23,22 @@ defmodule Breakaway.Discord.VoiceSyncTest do
 
     space = small_space_fixture()
     bind_zone!(space, "cell")
+
+    Worlds.create_zone!(
+      %{
+        space_id: space.id,
+        name: "Pod",
+        slug: "pod",
+        kind: :meeting,
+        x: 6,
+        y: 6,
+        width: 2,
+        height: 2,
+        accent: "#ffffff"
+      },
+      authorize?: false
+    )
+
     zones = Worlds.list_zones!(query: [filter: [space_id: space.id]], authorize?: false)
     user = user_fixture()
 
@@ -131,6 +147,28 @@ defmodule Breakaway.Discord.VoiceSyncTest do
     VoiceSync.sync(event(ctx, "cell", nil))
 
     assert_receive {:voice, {:returned_to_lobby, _zone}}
+  end
+
+  test "walking out toward another room's call is left alone", ctx do
+    previous = Application.get_env(:breakaway, :discord)
+    Application.put_env(:breakaway, :discord, Keyword.put(previous, :lobby_channel_id, "lobby-9"))
+    on_exit(fn -> Application.put_env(:breakaway, :discord, previous) end)
+
+    bind_zone!(ctx.space, "pod", channel_id: "chan-pod", channel_name: "pod")
+    zones = Worlds.list_zones!(query: [filter: [space_id: ctx.space.id]], authorize?: false)
+
+    stub(fn _conn -> flunk("should not have moved them to the lobby mid-walk") end)
+
+    # Joined #pod from Discord; the office is walking them out of the cell and
+    # over to the pod. The old room's exit must not undo that.
+    event =
+      ctx
+      |> event("cell", nil)
+      |> Map.merge(%{voice_channel_id: "chan-pod", zones: zones})
+
+    VoiceSync.sync(event)
+
+    refute_receive {:voice, _}, 100
   end
 
   test "an unlinked meeting room reports that it is not connected", ctx do

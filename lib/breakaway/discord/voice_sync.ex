@@ -76,6 +76,33 @@ defmodule Breakaway.Discord.VoiceSync do
   defp exit_room(%{voice_channel_id: nil}, _from_zone), do: :ok
 
   defp exit_room(event, from_zone) do
+    if in_another_rooms_call?(event, from_zone) do
+      # They joined a different room's call from Discord and the office is
+      # walking them over. Returning them to the lobby on the way out of the old
+      # room would undo the very thing they just asked for.
+      :ok
+    else
+      return_to_lobby(event, from_zone)
+    end
+  end
+
+  # The channel they are actually in belongs to some other room on this floor.
+  defp in_another_rooms_call?(event, from_zone) do
+    case Map.get(event, :voice_channel_id) do
+      # Not in a call at all. Matching on nil would pair them with the first
+      # unbound zone on the floor, which is every zone that has no channel.
+      nil ->
+        false
+
+      channel_id ->
+        case Enum.find(event.zones, &(&1.discord_channel_id == channel_id)) do
+          nil -> false
+          zone -> zone.slug != from_zone.slug
+        end
+    end
+  end
+
+  defp return_to_lobby(event, from_zone) do
     case lobby_channel_id() do
       nil ->
         # Nothing configured to fall back to — leave the call alone rather than
