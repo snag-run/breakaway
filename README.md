@@ -52,21 +52,33 @@ the server can move them between voice channels.
    http://localhost:4000/auth/user/discord/callback
    ```
 
-   Copy the **Client ID** and **Client Secret**.
+   Then **Save Changes** — it has no effect until you do. Copy the **Client ID**
+   and **Client Secret**.
+
+   Ignore the *OAuth2 URL Generator* scopes on that page: they only build an
+   invite link. The scopes the app asks for at sign-in (`identify email guilds`)
+   are sent by the app itself, in `Breakaway.Accounts.User`.
 
 3. **Bot → Reset Token**, copy the token.
 
-4. Invite the bot to your server. Under **OAuth2 → URL Generator** pick scope
-   `bot` and the permissions **View Channels**, **Move Members** and **Manage
-   Channels**, or use:
+4. Invite the bot to your server with scope `bot`:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=16778256
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=17826832
    ```
 
-   Manage Channels is only needed if you want the setup task below to create
-   the voice channels for you; drop it (`permissions=16778240`) if you'd rather
-   make them by hand.
+   | Permission | Bit | Why |
+   | --- | --- | --- |
+   | View Channels | 1024 | see the voice channels to bind them |
+   | Connect | 1048576 | see below |
+   | Manage Channels | 16 | let the setup task create the rooms |
+   | Move Members | 16777216 | the actual feature |
+
+   Discord's docs say Move Members "allows for moving of members between voice
+   channels" and don't say whether Connect on the target channel is also
+   needed. Including it costs nothing — the bot never joins voice — and avoids a
+   confusing 403 on channels with restricted permissions. Minimal set without
+   it, and without channel creation: `permissions=16778240`.
 
 5. Copy `.env.example` to `.env` and fill it in. `config/dev.exs` reads `.env`
    on boot, so `mix phx.server` picks it up — anything already exported in your
@@ -214,8 +226,9 @@ routes traffic to a node that can only serve errors.
 Two things to get right:
 
 - **`DISCORD_REDIRECT_URI` must exactly match** a redirect registered on the
-  Discord application — `https://your-host/auth/user/discord/callback`. A
-  mismatch fails at the callback with a Discord error, not in your logs.
+  Discord application — `https://your-host/auth/user/discord/callback` — and
+  the portal's **Save Changes** must actually have been pressed. A mismatch
+  fails at the Discord callback, not in your logs.
 - The dev sign-in is compiled out: `/dev/sign-in-as/...` returns 404 when
   `:dev_routes` is off, and the action behind it refuses independently. Both
   hold in a release built with `MIX_ENV=prod`.
