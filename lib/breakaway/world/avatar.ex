@@ -24,6 +24,9 @@ defmodule Breakaway.World.Avatar do
     moving?: false,
     seated?: false,
     away?: false,
+    # Discord voice channel this person is actually connected to, if any.
+    voice_channel_id: nil,
+    muted?: false,
     # Monotonic ms of the last deliberate action, for idle detection.
     active_at: nil,
     # distance walked, in tiles — the renderer derives the walk frame from it so
@@ -49,7 +52,9 @@ defmodule Breakaway.World.Avatar do
       s: a.activity || a.status,
       a: a.activity,
       sit: a.seated?,
-      away: a.away?
+      away: a.away?,
+      v: not is_nil(a.voice_channel_id),
+      mu: a.muted?
     }
   end
 end

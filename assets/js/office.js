@@ -128,11 +128,14 @@ export const Office = {
         existing.activity = a.a;
         existing.seated = a.sit;
         existing.away = a.away;
+        existing.voice = a.v;
+        existing.muted = a.mu;
       } else {
         this.avatars.set(a.id, {
           x: a.x, y: a.y, tx: a.x, ty: a.y,
           dir: a.d, palette: a.p, moving: a.m, frame: a.f,
           name: a.n, status: a.s, zone: a.z, activity: a.a, seated: a.sit, away: a.away,
+          voice: a.v, muted: a.mu,
         });
         // Don't pan the camera across the map on first sight of ourselves.
         if (a.id === this.selfId) this.camera = { x: a.x, y: a.y };
@@ -416,12 +419,22 @@ export const Office = {
 
       ctx.globalAlpha = a.away ? 0.5 : 1;
       ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
-      const w = ctx.measureText(a.name).width + 10;
+      // A dot inside the name tag when Discord says they are really in the call.
+      const dot = a.voice ? 13 : 0;
+      const w = ctx.measureText(a.name).width + 10 + dot;
       ctx.fillStyle = id === this.selfId ? "rgba(255,212,121,0.92)" : "rgba(20,22,28,0.75)";
       this.roundRect(ctx, x - w / 2, y - 15, w, 16, 5);
       ctx.fill();
+
+      if (a.voice) {
+        ctx.fillStyle = a.muted ? "#f87171" : "#34d399";
+        ctx.beginPath();
+        ctx.arc(x - w / 2 + 8, y - 7, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.fillStyle = id === this.selfId ? "#1a1c22" : "#f2f2ef";
-      ctx.fillText(a.name, x, y - 2);
+      ctx.fillText(a.name, x + dot / 2, y - 2);
 
       if (a.activity) {
         ctx.font = "600 11px ui-sans-serif, system-ui, sans-serif";

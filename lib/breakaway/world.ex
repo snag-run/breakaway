@@ -45,6 +45,18 @@ defmodule Breakaway.World do
     end
   end
 
+  @doc "Space ids with a simulation running on this node."
+  def running_spaces do
+    Registry.select(Breakaway.World.Registry, [{{:"$1", :_, :_}, [], [:"$1"]}])
+  end
+
+  @doc "Who this floor needs Discord voice state for."
+  def voice_targets(space_id), do: safely(fn -> SpaceServer.voice_targets(space_id) end)
+
+  @doc "Hand back what Discord says about who is in a call."
+  def apply_voice_states(space_id, states),
+    do: safely(fn -> SpaceServer.apply_voice_states(space_id, states) end)
+
   def topic(space_id), do: SpaceServer.topic(space_id)
 
   def subscribe(space_id), do: Phoenix.PubSub.subscribe(Breakaway.PubSub, topic(space_id))

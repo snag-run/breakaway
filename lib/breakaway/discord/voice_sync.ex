@@ -46,6 +46,15 @@ defmodule Breakaway.Discord.VoiceSync do
   # --- entering ---------------------------------------------------------------
 
   defp enter(event, zone) do
+    if Map.get(event, :voice_channel_id) == zone.discord_channel_id do
+      # They joined from Discord and the office walked them in — no move needed.
+      :ok
+    else
+      do_enter(event, zone)
+    end
+  end
+
+  defp do_enter(event, zone) do
     case Client.move_member(zone.discord_guild_id, event.discord_id, zone.discord_channel_id) do
       :ok ->
         notify(event, {:moved, zone})
@@ -62,6 +71,9 @@ defmodule Breakaway.Discord.VoiceSync do
   end
 
   # --- leaving ----------------------------------------------------------------
+
+  # Nothing to do for somebody who was never in the call to begin with.
+  defp exit_room(%{voice_channel_id: nil}, _from_zone), do: :ok
 
   defp exit_room(event, from_zone) do
     case lobby_channel_id() do

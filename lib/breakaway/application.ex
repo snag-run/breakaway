@@ -16,6 +16,8 @@ defmodule Breakaway.Application do
       {Task.Supervisor, name: Breakaway.TaskSupervisor},
       # Per-space simulations live under here, started on demand.
       Breakaway.World.Supervisor,
+      # Watches who is actually in a Discord call. Idles unless a bot is configured.
+      Breakaway.Discord.VoiceTracker,
       # Start to serve requests, typically the last entry
       BreakawayWeb.Endpoint,
       {AshAuthentication.Supervisor, [otp_app: :breakaway]}

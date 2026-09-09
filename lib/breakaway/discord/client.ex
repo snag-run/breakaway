@@ -62,12 +62,38 @@ defmodule Breakaway.Discord.Client do
   end
 
   @doc "The member's current voice state, or `{:error, :not_in_voice}`."
-  def voice_state(guild_id, user_id) do
-    case request(:get, "/guilds/#{guild_id}/voice-states/#{user_id}") do
+  def voice_state(guild_id, user_id, opts \\ []) do
+    case request(:get, "/guilds/#{guild_id}/voice-states/#{user_id}", nil, opts) do
       {:ok, %{"channel_id" => nil}} -> {:error, :not_in_voice}
       {:ok, state} -> {:ok, state}
       {:error, {:http, 404, _}} -> {:error, :not_in_voice}
       other -> other
+    end
+  end
+
+  @doc """
+  Where a member is connected, normalised for the office.
+
+  `{:ok, nil}` means "we asked and they are not in a call", which is different
+  from `{:error, reason}` meaning "we could not find out".
+  """
+  def connection(guild_id, user_id) do
+    # Polled repeatedly, so a failure should be dropped and picked up on the
+    # next round rather than retried behind everyone else's lookup.
+    case voice_state(guild_id, user_id, retry: false) do
+      {:ok, state} ->
+        {:ok,
+         %{
+           channel_id: state["channel_id"],
+           muted?: !!(state["mute"] || state["self_mute"]),
+           deafened?: !!(state["deaf"] || state["self_deaf"])
+         }}
+
+      {:error, :not_in_voice} ->
+        {:ok, nil}
+
+      other ->
+        other
     end
   end
 
@@ -100,7 +126,7 @@ defmodule Breakaway.Discord.Client do
           url: base_url() <> path,
           headers: [{"authorization", authorization}],
           receive_timeout: 8_000,
-          retry: :transient,
+          retry: Keyword.get(opts, :retry, :transient),
           max_retries: 2
         ]
         |> then(&if(body, do: Keyword.put(&1, :json, body), else: &1))

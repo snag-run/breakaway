@@ -92,6 +92,24 @@ defmodule Breakaway.Discord.VoiceSyncTest do
     refute_receive {:voice, _}, 100
   end
 
+  test "no move is attempted when they are already in that channel", ctx do
+    stub(fn _conn -> flunk("should not have called Discord") end)
+
+    event = ctx |> event(nil, "cell") |> Map.put(:voice_channel_id, "channel-1")
+    VoiceSync.sync(event)
+
+    refute_receive {:voice, _}, 100
+  end
+
+  test "leaving is left alone for somebody who was never in the call", ctx do
+    stub(fn _conn -> flunk("should not have called Discord") end)
+
+    event = ctx |> event("cell", nil) |> Map.put(:voice_channel_id, nil)
+    VoiceSync.sync(event)
+
+    refute_receive {:voice, _}, 100
+  end
+
   test "leaving a linked room says so when there is no lobby channel", ctx do
     VoiceSync.sync(event(ctx, "cell", nil))
 

@@ -34,6 +34,7 @@ enabled, and the underlying action refuses to run without it.
 | `E` | Use the furniture you're standing next to |
 | `Enter` | Talk to the room |
 | `Esc` | Back to walking |
+| Click | Walk to a spot |
 | `−` `+` | Zoom out / in |
 | `?` | Show or hide the controls panel |
 
@@ -81,6 +82,24 @@ That's a platform limitation, not a missing feature.
 Leaving a room only moves you if `DISCORD_LOBBY_CHANNEL_ID` is set. Without it
 you stay in the call, on the assumption that silently hanging up on somebody
 mid-sentence is worse than leaving them connected.
+
+### ...and the other direction
+
+`Breakaway.Discord.VoiceTracker` watches who is genuinely connected, so the
+office and the call agree. Avatars carry a dot when they are really in a call
+(red when muted), the roster counts how many of a room's occupants are on the
+call, and **joining a bound voice channel from Discord walks your avatar into
+that room**.
+
+It polls, because Discord only serves a member's voice state over REST one
+member at a time — the bulk view arrives over the gateway. It asks about the
+people who are currently on a floor, in parallel, every few seconds
+(`:voice_poll_ms`), which at team scale is well inside Discord's budget and
+avoids running a gateway connection with its reconnect and resume machinery. A
+lookup that fails is dropped rather than being treated as "they hung up".
+
+If you outgrow that, the replacement is a gateway client publishing the same
+`{:voice_states, space_id, map}` — nothing downstream would change.
 
 ## How it fits together
 

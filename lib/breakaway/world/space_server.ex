@@ -50,6 +50,8 @@ defmodule Breakaway.World.SpaceServer do
   def walk_to(space_id, user_id, point), do: cast(space_id, {:walk_to, user_id, point})
   def refresh_profile(space_id, user), do: call(space_id, {:profile, user})
   def mark_active(space_id, user_id), do: cast(space_id, {:active, user_id})
+  def voice_targets(space_id), do: call(space_id, :voice_targets)
+  def apply_voice_states(space_id, states), do: cast(space_id, {:voice_states, states})
   def interact(space_id, user_id), do: call(space_id, {:interact, user_id})
   def snapshot(space_id), do: call(space_id, :snapshot)
   def zone_occupancy(space_id), do: call(space_id, :zone_occupancy)
@@ -164,6 +166,24 @@ defmodule Breakaway.World.SpaceServer do
 
   def handle_call(:zone_occupancy, _from, state), do: {:reply, occupancy(state), state}
 
+  # Who to ask Discord about: everyone on this floor, provided we know which
+  # guild to ask in.
+  def handle_call(:voice_targets, _from, state) do
+    targets =
+      case primary_guild(state) do
+        nil ->
+          []
+
+        guild_id ->
+          state.avatars
+          |> Map.values()
+          |> Enum.reject(&is_nil(&1.discord_id))
+          |> Enum.map(&%{user_id: &1.user_id, discord_id: &1.discord_id, guild_id: guild_id})
+      end
+
+    {:reply, targets, state}
+  end
+
   @impl true
   def handle_cast({:input, user_id, {dx, dy}}, state) do
     case state.avatars[user_id] do
@@ -186,6 +206,31 @@ defmodule Breakaway.World.SpaceServer do
       %{away?: false} = avatar -> {:noreply, put_in(state.avatars[user_id], touch(avatar))}
       avatar -> {:noreply, %{put_in(state.avatars[user_id], touch(avatar)) | dirty?: true}}
     end
+  end
+
+  # What Discord says about who is really in a call.
+  def handle_cast({:voice_states, states}, state) do
+    {avatars, changed?} =
+      Enum.reduce(states, {state.avatars, false}, fn {user_id, connection}, {acc, changed?} ->
+        case Map.fetch(acc, user_id) do
+          :error ->
+            {acc, changed?}
+
+          {:ok, avatar} ->
+            channel_id = connection && connection.channel_id
+            muted? = !!(connection && connection.muted?)
+
+            updated = %{avatar | voice_channel_id: channel_id, muted?: muted?}
+
+            {Map.put(acc, user_id, updated),
+             changed? or avatar.voice_channel_id != channel_id or avatar.muted? != muted?}
+        end
+      end)
+
+    state = %{state | avatars: avatars}
+    state = Enum.reduce(Map.keys(states), state, &walk_to_their_call/2)
+
+    {:noreply, %{state | dirty?: state.dirty? or changed?}}
   end
 
   def handle_cast({:walk_to, user_id, {tx, ty}}, state) do
@@ -354,6 +399,44 @@ defmodule Breakaway.World.SpaceServer do
     end
   end
 
+  # Someone who joined a call from Discord should show up in that room, so the
+  # floor matches the conversation. They walk in rather than teleporting.
+  defp walk_to_their_call(user_id, state) do
+    with %Avatar{voice_channel_id: channel_id} = avatar when is_binary(channel_id) <-
+           state.avatars[user_id],
+         %{slug: slug} = zone <- zone_for_channel(state, channel_id),
+         true <- avatar.zone != slug,
+         # Don't fight someone who is already on their way somewhere.
+         [] <- avatar.path,
+         {:ok, spot} <- free_spot_in_zone(state, zone) do
+      put_in(state.avatars[user_id], %{avatar | path: route(state, avatar, spot)})
+    else
+      _ -> state
+    end
+  end
+
+  defp zone_for_channel(state, channel_id),
+    do: Enum.find(state.zones, &(&1.discord_channel_id == channel_id))
+
+  # Meeting rooms have a table in the middle, so look outward from the centre
+  # for somewhere to actually stand.
+  defp free_spot_in_zone(state, zone) do
+    cx = zone.x + zone.width / 2
+    cy = zone.y + zone.height / 2
+
+    for(
+      x <- zone.x..(zone.x + zone.width - 1),
+      y <- zone.y..(zone.y + zone.height - 1),
+      do: {x, y}
+    )
+    |> Enum.sort_by(fn {x, y} -> :math.pow(x + 0.5 - cx, 2) + :math.pow(y + 0.5 - cy, 2) end)
+    |> Enum.find_value(:error, fn {x, y} ->
+      if not blocked?(state, x + 0.5, y + 0.5), do: {:ok, {x + 0.5, y + 0.5}}
+    end)
+  end
+
+  defp primary_guild(state), do: Enum.find_value(state.zones, & &1.discord_guild_id)
+
   # --- routing ----------------------------------------------------------------
 
   defp route(state, avatar, {tx, ty}) do
@@ -496,6 +579,7 @@ defmodule Breakaway.World.SpaceServer do
       name: avatar.name,
       from: from,
       to: to,
+      voice_channel_id: avatar.voice_channel_id,
       zones: state.zones
     }
 

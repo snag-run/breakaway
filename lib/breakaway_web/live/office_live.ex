@@ -247,7 +247,7 @@ defmodule BreakawayWeb.OfficeLive do
   # changed, so the sidebar isn't re-diffed on every step.
   defp refresh_roster(socket, avatars) do
     me = socket.assigns.current_user.id
-    key = avatars |> Enum.map(&{&1.id, &1.z, &1.s, &1.away}) |> Enum.sort()
+    key = avatars |> Enum.map(&{&1.id, &1.z, &1.s, &1.away, &1.v, &1.mu}) |> Enum.sort()
 
     if key == socket.assigns[:roster_key] do
       socket
@@ -255,7 +255,16 @@ defmodule BreakawayWeb.OfficeLive do
       roster =
         avatars
         |> Enum.map(
-          &%{id: &1.id, name: &1.n, zone: &1.z, status: &1.s, palette: &1.p, away: &1.away}
+          &%{
+            id: &1.id,
+            name: &1.n,
+            zone: &1.z,
+            status: &1.s,
+            palette: &1.p,
+            away: &1.away,
+            in_call: &1.v,
+            muted: &1.mu
+          }
         )
         |> Enum.sort_by(&{&1.zone || "~", String.downcase(&1.name)})
 
