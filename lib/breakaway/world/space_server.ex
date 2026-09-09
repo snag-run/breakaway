@@ -31,6 +31,7 @@ defmodule Breakaway.World.SpaceServer do
   @keepalive_ms 1_000
   # How close counts as having arrived at a waypoint, in tiles.
   @waypoint_reached 0.12
+  @default_away_after_ms :timer.minutes(5)
 
   # --- client API -------------------------------------------------------------
 
@@ -48,6 +49,7 @@ defmodule Breakaway.World.SpaceServer do
   def set_input(space_id, user_id, vec), do: cast(space_id, {:input, user_id, vec})
   def walk_to(space_id, user_id, point), do: cast(space_id, {:walk_to, user_id, point})
   def refresh_profile(space_id, user), do: call(space_id, {:profile, user})
+  def mark_active(space_id, user_id), do: cast(space_id, {:active, user_id})
   def interact(space_id, user_id), do: call(space_id, {:interact, user_id})
   def snapshot(space_id), do: call(space_id, :snapshot)
   def zone_occupancy(space_id), do: call(space_id, :zone_occupancy)
@@ -96,9 +98,11 @@ defmodule Breakaway.World.SpaceServer do
       palette: rem(user.avatar_palette || 0, Atlas.palette_count()),
       status: user.status_message,
       pid: pid,
-      x: state.space.spawn_x + 0.5,
-      y: state.space.spawn_y + 0.5
+      active_at: now_ms()
     }
+
+    {x, y} = spawn_position(state, user)
+    avatar = %{avatar | x: x, y: y}
 
     # Spawn point may be occupied; nudge to the nearest free tile.
     avatar = %{avatar | x: avatar.x, y: avatar.y} |> nudge_to_free(state)
@@ -140,7 +144,7 @@ defmodule Breakaway.World.SpaceServer do
         {:reply, {:error, :not_here}, state}
 
       %{activity: activity} = avatar when not is_nil(activity) ->
-        state = put_in(state.avatars[user_id], stand_up(avatar, state))
+        state = put_in(state.avatars[user_id], avatar |> touch() |> stand_up(state))
         {:reply, {:ok, nil}, %{state | dirty?: true}}
 
       avatar ->
@@ -149,7 +153,7 @@ defmodule Breakaway.World.SpaceServer do
             {:reply, {:error, :nothing_nearby}, state}
 
           prop ->
-            next = start_activity(avatar, prop)
+            next = avatar |> touch() |> start_activity(prop)
             state = put_in(state.avatars[user_id], next)
             {:reply, {:ok, next.activity}, %{state | dirty?: true}}
         end
@@ -170,7 +174,17 @@ defmodule Breakaway.World.SpaceServer do
         input = {clamp(dx), clamp(dy)}
         # Touching the keys cancels wherever you had clicked.
         path = if input == {0, 0}, do: avatar.path, else: []
-        {:noreply, put_in(state.avatars[user_id], %{avatar | input: input, path: path})}
+        avatar = %{avatar | input: input, path: path}
+        avatar = if input == {0, 0}, do: avatar, else: touch(avatar)
+        {:noreply, put_in(state.avatars[user_id], avatar)}
+    end
+  end
+
+  def handle_cast({:active, user_id}, state) do
+    case state.avatars[user_id] do
+      nil -> {:noreply, state}
+      %{away?: false} = avatar -> {:noreply, put_in(state.avatars[user_id], touch(avatar))}
+      avatar -> {:noreply, %{put_in(state.avatars[user_id], touch(avatar)) | dirty?: true}}
     end
   end
 
@@ -181,6 +195,7 @@ defmodule Breakaway.World.SpaceServer do
 
       avatar ->
         avatar = if avatar.seated?, do: stand_up(avatar, state), else: avatar
+        avatar = touch(avatar)
         path = route(state, avatar, {tx, ty})
 
         {:noreply,
@@ -223,8 +238,9 @@ defmodule Breakaway.World.SpaceServer do
 
   defp step(state) do
     dt = @tick_ms / 1000
+    now = now_ms()
 
-    Enum.reduce(state.avatars, {%{}, [], false}, fn {id, avatar}, {acc, trans, moved?} ->
+    Enum.reduce(state.avatars, {%{}, [], false}, fn {id, avatar}, {acc, trans, changed?} ->
       next = move(avatar, dt, state)
       zone = zone_at(state.zones, next.x, next.y)
 
@@ -233,9 +249,37 @@ defmodule Breakaway.World.SpaceServer do
 
       moved_now? = next.x != avatar.x or next.y != avatar.y
       next = if moved_now? and next.activity, do: maybe_end_activity(state, next), else: next
+      next = if moved_now?, do: touch(next), else: idle_check(next, now)
 
-      {Map.put(acc, id, next), trans, moved? or moved_now?}
+      {Map.put(acc, id, next), trans, changed? or moved_now? or next.away? != avatar.away?}
     end)
+  end
+
+  defp touch(avatar), do: %{avatar | active_at: now_ms(), away?: false}
+
+  defp idle_check(%Avatar{active_at: nil} = avatar, _now), do: avatar
+
+  defp idle_check(avatar, now),
+    do: %{avatar | away?: now - avatar.active_at >= away_after_ms()}
+
+  defp away_after_ms,
+    do: Application.get_env(:breakaway, :away_after_ms, @default_away_after_ms)
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  # Come back to where you left off, as long as it is still on this floor.
+  # `nudge_to_free/2` sorts out a spot that has since been furnished.
+  defp spawn_position(state, user) do
+    space_id = state.space.id
+
+    with ^space_id <- Map.get(user, :last_space_id),
+         x when is_number(x) <- Map.get(user, :last_x),
+         y when is_number(y) <- Map.get(user, :last_y),
+         true <- x >= 0 and y >= 0 and x < state.space.width and y < state.space.height do
+      {x * 1.0, y * 1.0}
+    else
+      _ -> {state.space.spawn_x + 0.5, state.space.spawn_y + 0.5}
+    end
   end
 
   defp move(avatar, dt, state) do
@@ -479,11 +523,35 @@ defmodule Breakaway.World.SpaceServer do
         state
 
       {avatar, avatars} ->
+        remember_position(state, avatar)
         state = %{state | avatars: avatars, dirty?: true}
         broadcast(state, {:left, user_id})
         if avatar.zone, do: emit_zone_change(state, avatar, avatar.zone, nil)
         state
     end
+  end
+
+  # Done inline rather than on a task: people leave rarely, it is one indexed
+  # update, and a failure here must never take the floor down with it.
+  defp remember_position(state, avatar) do
+    with {:ok, user} <- Ash.get(Breakaway.Accounts.User, avatar.user_id, authorize?: false) do
+      Breakaway.Accounts.remember_position(
+        user,
+        %{last_space_id: state.space.id, last_x: avatar.x, last_y: avatar.y},
+        authorize?: false
+      )
+    end
+  rescue
+    error ->
+      Logger.warning("could not remember position for #{avatar.user_id}: #{inspect(error)}")
+      :ok
+  catch
+    # A database that is down or a checked-in sandbox connection exits rather
+    # than raising; either way, losing a saved position must not take the floor
+    # down with it.
+    :exit, reason ->
+      Logger.warning("could not remember position for #{avatar.user_id}: #{inspect(reason)}")
+      :ok
   end
 
   defp public_state(state) do

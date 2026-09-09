@@ -23,6 +23,9 @@ defmodule Breakaway.World.Avatar do
     path: [],
     moving?: false,
     seated?: false,
+    away?: false,
+    # Monotonic ms of the last deliberate action, for idle detection.
+    active_at: nil,
     # distance walked, in tiles — the renderer derives the walk frame from it so
     # the animation stays in step with actual movement rather than wall time
     distance: 0.0,
@@ -45,7 +48,8 @@ defmodule Breakaway.World.Avatar do
       z: a.zone,
       s: a.activity || a.status,
       a: a.activity,
-      sit: a.seated?
+      sit: a.seated?,
+      away: a.away?
     }
   end
 end

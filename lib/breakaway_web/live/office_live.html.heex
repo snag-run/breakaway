@@ -121,10 +121,18 @@
             person.id == @current_user.id && "bg-white/5"
           ]}
         >
-          <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-400"></span>
+          <span
+            class={[
+              "h-2 w-2 shrink-0 rounded-full",
+              if(person.away, do: "bg-zinc-600", else: "bg-emerald-400")
+            ]}
+            title={if person.away, do: "Away", else: "Here"}
+          ></span>
           <div class="min-w-0">
-            <p class="truncate text-sm">{person.name}</p>
-            <p :if={person.status} class="truncate text-xs text-zinc-500">{person.status}</p>
+            <p class={["truncate text-sm", person.away && "text-zinc-500"]}>{person.name}</p>
+            <p class="truncate text-xs text-zinc-500">
+              {(person.away && "Away") || person.status}
+            </p>
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ defmodule Breakaway.Accounts do
 
     resource Breakaway.Accounts.User do
       define :update_profile, action: :update_profile
+      define :remember_position, action: :remember_position
     end
 
     resource Breakaway.Accounts.UserIdentity

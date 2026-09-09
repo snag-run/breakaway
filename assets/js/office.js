@@ -127,11 +127,12 @@ export const Office = {
         existing.name = a.n; existing.status = a.s; existing.zone = a.z;
         existing.activity = a.a;
         existing.seated = a.sit;
+        existing.away = a.away;
       } else {
         this.avatars.set(a.id, {
           x: a.x, y: a.y, tx: a.x, ty: a.y,
           dir: a.d, palette: a.p, moving: a.m, frame: a.f,
-          name: a.n, status: a.s, zone: a.z, activity: a.a, seated: a.sit,
+          name: a.n, status: a.s, zone: a.z, activity: a.a, seated: a.sit, away: a.away,
         });
         // Don't pan the camera across the map on first sight of ourselves.
         if (a.id === this.selfId) this.camera = { x: a.x, y: a.y };
@@ -385,7 +386,10 @@ export const Office = {
       ctx.restore();
     }
 
+    // Someone idle fades back so the room reads at a glance.
+    if (a.away) ctx.globalAlpha = 0.45;
     ctx.drawImage(this.sheets.avatars, frame * fw, row * fh, fw, fh, dx, dy, fw, fh);
+    ctx.globalAlpha = 1;
   },
 
   drawLabels(ox, oy, tile) {
@@ -410,6 +414,7 @@ export const Office = {
       const y = oy + a.y * tile - tile * 1.25;
       if (x < -100 || x > this.viewW + 100) continue;
 
+      ctx.globalAlpha = a.away ? 0.5 : 1;
       ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
       const w = ctx.measureText(a.name).width + 10;
       ctx.fillStyle = id === this.selfId ? "rgba(255,212,121,0.92)" : "rgba(20,22,28,0.75)";
@@ -426,6 +431,8 @@ export const Office = {
         ctx.fillStyle = "rgba(255,255,255,0.85)";
         ctx.fillText(a.activity, x, y - 17);
       }
+
+      ctx.globalAlpha = 1;
 
       const bubble = this.bubbles.get(id);
       if (bubble) {

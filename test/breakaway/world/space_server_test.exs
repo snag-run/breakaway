@@ -196,6 +196,85 @@ defmodule Breakaway.World.SpaceServerTest do
     end
   end
 
+  describe "going idle" do
+    setup do
+      previous = Application.get_env(:breakaway, :away_after_ms)
+      Application.put_env(:breakaway, :away_after_ms, 250)
+      on_exit(fn -> Application.put_env(:breakaway, :away_after_ms, previous) end)
+      :ok
+    end
+
+    test "someone who stops doing anything is marked away", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+      refute me(space, user).away
+
+      Process.sleep(450)
+
+      assert me(space, user).away
+    end
+
+    test "moving brings them back", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+      Process.sleep(450)
+      assert me(space, user).away
+
+      walk(space, user, {0, -1}, 150)
+
+      refute me(space, user).away
+    end
+
+    test "so does saying something", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+      Process.sleep(450)
+      assert me(space, user).away
+
+      World.mark_active(space.id, user.id)
+      Process.sleep(120)
+
+      refute me(space, user).away
+    end
+  end
+
+  describe "coming back" do
+    test "you return to where you left off", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+      walked = walk(space, user, {0, -1}, 400)
+
+      assert abs(walked.y - (space.spawn_y + 0.5)) > 0.2,
+             "expected to have walked away from spawn"
+
+      :ok = World.leave(space.id, user.id)
+
+      reloaded = Ash.get!(Breakaway.Accounts.User, user.id, authorize?: false)
+      assert_in_delta reloaded.last_x, walked.x, 0.01
+      assert_in_delta reloaded.last_y, walked.y, 0.01
+
+      {:ok, _} = World.join(space.id, reloaded)
+      back = me(space, reloaded)
+
+      assert_in_delta back.x, walked.x, 0.01
+      assert_in_delta back.y, walked.y, 0.01
+    end
+
+    test "a position saved on another floor is ignored", %{space: space, user: user} do
+      other_space = small_space_fixture()
+
+      {:ok, _} =
+        Breakaway.Accounts.remember_position(
+          user,
+          %{last_space_id: other_space.id, last_x: 8.5, last_y: 8.5},
+          authorize?: false
+        )
+
+      reloaded = Ash.get!(Breakaway.Accounts.User, user.id, authorize?: false)
+      {:ok, _} = World.join(space.id, reloaded)
+
+      spawned = me(space, reloaded)
+      assert_in_delta spawned.x, space.spawn_x + 0.5, 0.01
+      assert_in_delta spawned.y, space.spawn_y + 0.5, 0.01
+    end
+  end
+
   test "two people share the same floor", %{space: space, user: user} do
     other = user_fixture("bob")
     {:ok, _} = World.join(space.id, user)

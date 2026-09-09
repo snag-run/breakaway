@@ -110,6 +110,9 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# How long somebody can do nothing before the office shows them as away.
+config :breakaway, away_after_ms: :timer.minutes(5)
+
 # Ash 3.33+ requires every app to choose explicitly how string length is counted.
 # :codepoints is the recommended choice for new applications.
 config :ash, :default_string_length_count, :codepoints

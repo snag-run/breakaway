@@ -99,6 +99,7 @@ defmodule BreakawayWeb.OfficeLive do
       {:noreply, socket}
     else
       user = socket.assigns.current_user
+      World.mark_active(socket.assigns.space.id, user.id)
 
       Phoenix.PubSub.broadcast(
         Breakaway.PubSub,
@@ -246,14 +247,16 @@ defmodule BreakawayWeb.OfficeLive do
   # changed, so the sidebar isn't re-diffed on every step.
   defp refresh_roster(socket, avatars) do
     me = socket.assigns.current_user.id
-    key = avatars |> Enum.map(&{&1.id, &1.z, &1.s}) |> Enum.sort()
+    key = avatars |> Enum.map(&{&1.id, &1.z, &1.s, &1.away}) |> Enum.sort()
 
     if key == socket.assigns[:roster_key] do
       socket
     else
       roster =
         avatars
-        |> Enum.map(&%{id: &1.id, name: &1.n, zone: &1.z, status: &1.s, palette: &1.p})
+        |> Enum.map(
+          &%{id: &1.id, name: &1.n, zone: &1.z, status: &1.s, palette: &1.p, away: &1.away}
+        )
         |> Enum.sort_by(&{&1.zone || "~", String.downcase(&1.name)})
 
       my_zone = Enum.find_value(avatars, fn a -> if a.id == me, do: a.z end)

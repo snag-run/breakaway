@@ -119,6 +119,17 @@ defmodule Breakaway.Accounts.User do
       change {AshAuthentication.GenerateTokenChange, strategy_name: :discord}
     end
 
+    update :remember_position do
+      description """
+      Where this person was standing when they left, so signing back in puts
+      them where they were rather than on the spawn tile. Written by the space
+      simulation, never by the browser.
+      """
+
+      accept [:last_space_id, :last_x, :last_y]
+      require_atomic? false
+    end
+
     update :update_profile do
       description "Change how you look and what you're called in the office."
       accept [:display_name, :avatar_palette, :status_message]
@@ -162,6 +173,10 @@ defmodule Breakaway.Accounts.User do
       public? true
       description "Index into the palettes baked into avatars.png."
     end
+
+    attribute :last_space_id, :uuid, public?: false
+    attribute :last_x, :float, public?: false
+    attribute :last_y, :float, public?: false
 
     attribute :discord_access_token, :string, sensitive?: true
     attribute :discord_refresh_token, :string, sensitive?: true
