@@ -77,6 +77,26 @@ config :phoenix_live_view,
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
 
+# Load .env if it is there, so `mix phx.server` picks up credentials without
+# the caller having to remember to source it first. Anything already in the
+# real environment wins, so this never overrides an explicit export.
+if File.exists?(".env") do
+  ".env"
+  |> File.read!()
+  |> String.split("\n")
+  |> Enum.each(fn line ->
+    line = line |> String.trim() |> String.replace_prefix("export ", "")
+
+    with false <- line == "" or String.starts_with?(line, "#"),
+         [key, value] <- String.split(line, "=", parts: 2) do
+      key = String.trim(key)
+      value = value |> String.trim() |> String.trim("\"") |> String.trim("'")
+
+      if System.get_env(key) in [nil, ""], do: System.put_env(key, value)
+    end
+  end)
+end
+
 # Discord OAuth + bot credentials. Set these in .env (see README) — the app
 # boots without them, it just cannot sign anyone in or move anyone between
 # voice channels until they are present.

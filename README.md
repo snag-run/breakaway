@@ -57,16 +57,35 @@ the server can move them between voice channels.
 3. **Bot → Reset Token**, copy the token.
 
 4. Invite the bot to your server. Under **OAuth2 → URL Generator** pick scope
-   `bot` and the permissions **View Channels** and **Move Members**, or use:
+   `bot` and the permissions **View Channels**, **Move Members** and **Manage
+   Channels**, or use:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=16778240
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=16778256
    ```
 
-5. Copy `.env.example` to `.env`, fill it in, and restart the server.
+   Manage Channels is only needed if you want the setup task below to create
+   the voice channels for you; drop it (`permissions=16778240`) if you'd rather
+   make them by hand.
 
-6. Sign in, open **Discord** in the sidebar, and bind each meeting room to a
-   voice channel.
+5. Copy `.env.example` to `.env` and fill it in. `config/dev.exs` reads `.env`
+   on boot, so `mix phx.server` picks it up — anything already exported in your
+   shell wins. `.env` is gitignored; never commit it.
+
+6. Wire the rooms up:
+
+   ```bash
+   mix breakaway.discord.setup --dry-run   # see what it would do
+   mix breakaway.discord.setup
+   ```
+
+   For every meeting room that isn't linked, it reuses a voice channel whose
+   name already matches and creates one if there isn't. Rooms already bound are
+   left alone, so it's safe to re-run after adding a room. Pass `--all` to
+   include the lounge, kitchen and focus pods — off by default, because binding
+   the lounge means walking past the couch drags you into a call.
+
+   Or do it by hand: sign in and open **Discord** in the sidebar.
 
 ### What actually happens when you walk into a room
 

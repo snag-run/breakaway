@@ -37,6 +37,27 @@ defmodule Breakaway.Discord.Client do
   end
 
   @doc """
+  Create a voice channel in a guild. Needs the bot to hold **Manage Channels**.
+  """
+  def create_voice_channel(guild_id, name, opts \\ []) do
+    body =
+      %{name: name, type: 2}
+      |> then(&if(opts[:parent_id], do: Map.put(&1, :parent_id, opts[:parent_id]), else: &1))
+      |> then(&if(opts[:user_limit], do: Map.put(&1, :user_limit, opts[:user_limit]), else: &1))
+
+    case request(:post, "/guilds/#{guild_id}/channels", body) do
+      {:ok, channel} ->
+        {:ok, %{id: channel["id"], name: channel["name"], type: :voice}}
+
+      {:error, {:http, 403, _}} ->
+        {:error, :missing_permission}
+
+      other ->
+        other
+    end
+  end
+
+  @doc """
   Move a member who is already connected to voice into `channel_id`.
 
   Discord cannot pull somebody into a call who has no voice connection — that
