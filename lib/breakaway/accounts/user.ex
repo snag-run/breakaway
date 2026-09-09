@@ -32,7 +32,7 @@ defmodule Breakaway.Accounts.User do
         authorize_url "https://discord.com/oauth2/authorize"
         token_url "https://discord.com/api/v10/oauth2/token"
         user_url "https://discord.com/api/v10/users/@me"
-        authorization_params scope: "identify email guilds"
+        authorization_params scope: "identify email"
         auth_method :client_secret_post
         registration_enabled? true
         identity_resource Breakaway.Accounts.UserIdentity

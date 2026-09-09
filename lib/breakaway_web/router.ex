@@ -36,7 +36,6 @@ defmodule BreakawayWeb.Router do
       on_mount: [{BreakawayWeb.LiveUserAuth, :live_user_required}] do
       live "/office", OfficeLive, :index
       live "/office/:slug", OfficeLive, :show
-      live "/settings/discord", DiscordSettingsLive, :index
     end
 
     auth_routes AuthController, Breakaway.Accounts.User, path: "/auth"

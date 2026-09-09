@@ -171,17 +171,6 @@ defmodule Breakaway.Discord.Client do
     end
   end
 
-  @doc "Guilds the signed-in user belongs to, using *their* OAuth access token."
-  def user_guilds(access_token) do
-    case request(:get, "/users/@me/guilds", nil, authorization: "Bearer #{access_token}") do
-      {:ok, guilds} when is_list(guilds) ->
-        {:ok, Enum.map(guilds, &%{id: &1["id"], name: &1["name"], icon: &1["icon"]})}
-
-      other ->
-        other
-    end
-  end
-
   @doc "Whether a bot token is configured at all."
   def configured?, do: is_binary(bot_token()) and bot_token() != ""
 

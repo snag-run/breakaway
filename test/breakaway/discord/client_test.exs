@@ -79,16 +79,6 @@ defmodule Breakaway.Discord.ClientTest do
     assert :ok = Client.disconnect_member("g1", "u1")
   end
 
-  test "user guilds are fetched with the user's own token" do
-    stub(fn conn ->
-      assert conn.request_path == "/api/v10/users/@me/guilds"
-      assert ["Bearer user-token"] = Plug.Conn.get_req_header(conn, "authorization")
-      Req.Test.json(conn, [%{"id" => "g1", "name" => "Acme", "icon" => nil}])
-    end)
-
-    assert {:ok, [%{id: "g1", name: "Acme"}]} = Client.user_guilds("user-token")
-  end
-
   test "without a bot token nothing is attempted" do
     previous = Application.get_env(:breakaway, :discord)
     Application.put_env(:breakaway, :discord, Keyword.delete(previous, :bot_token))

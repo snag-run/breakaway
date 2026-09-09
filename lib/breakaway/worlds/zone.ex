@@ -64,8 +64,13 @@ defmodule Breakaway.Worlds.Zone do
       authorize_if always()
     end
 
+    # The floor plan is seeded from code and the Discord bindings are made by
+    # `mix breakaway.discord.setup`, both of which run as the operator with
+    # `authorize?: false`. Nothing reached from a browser has any business
+    # rewriting a zone, and "any signed-in user" was the same thing as "anyone
+    # holding the server invite".
     policy action_type([:create, :update, :destroy]) do
-      authorize_if actor_present()
+      forbid_if always()
     end
   end
 
