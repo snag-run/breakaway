@@ -10,7 +10,13 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
       mix breakaway.discord.setup
       mix breakaway.discord.setup --guild 123456789
       mix breakaway.discord.setup --dry-run
-      mix breakaway.discord.setup --all          # social and focus rooms too
+      mix breakaway.discord.setup --all              # social and focus rooms too
+      mix breakaway.discord.setup --category Breakaway   # group them in a category
+      mix breakaway.discord.setup --no-lobby         # skip the lobby channel
+
+  It also makes the lobby channel people are returned to when they walk out of a
+  meeting room, and prints the `DISCORD_LOBBY_CHANNEL_ID` line to paste into
+  `.env`. Pass `--no-lobby` to skip that, or set the variable yourself.
 
   Needs `DISCORD_BOT_TOKEN` and a guild the bot is in, holding **Manage
   Channels** (to create) and **Move Members** (to move people once it's live).
@@ -22,7 +28,14 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
 
   @requirements ["app.start"]
 
-  @switches [guild: :string, dry_run: :boolean, all: :boolean, space: :string]
+  @switches [
+    guild: :string,
+    dry_run: :boolean,
+    all: :boolean,
+    space: :string,
+    category: :string,
+    lobby: :boolean
+  ]
 
   @impl Mix.Task
   def run(argv) do
@@ -31,18 +44,22 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
     with :ok <- check_configured(),
          {:ok, guild_id} <- resolve_guild(opts),
          {:ok, space} <- resolve_space(opts),
-         {:ok, channels} <- Client.list_voice_channels(guild_id) do
-      space
-      |> rooms(opts)
-      |> case do
+         {:ok, channels} <- Client.list_voice_channels(guild_id),
+         {:ok, parent_id} <- resolve_category(guild_id, opts) do
+      zones = zones(space)
+
+      case rooms(zones, opts) do
         [] ->
           Mix.shell().info("Nothing to link — every room already has a channel.")
 
         rooms ->
           Mix.shell().info("Linking #{length(rooms)} room(s) in guild #{guild_id}\n")
-          Enum.each(rooms, &link(&1, guild_id, channels, opts))
-          Mix.shell().info("\nDone. Walk into a room to try it.")
+          Enum.each(rooms, &link(&1, guild_id, channels, parent_id, opts))
       end
+
+      lobby(zones, guild_id, channels, parent_id, opts)
+
+      Mix.shell().info("\nDone. Walk into a room to try it.")
     else
       {:error, message} -> Mix.raise(message)
     end
@@ -50,20 +67,23 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
 
   # --- steps ------------------------------------------------------------------
 
-  defp link(zone, guild_id, channels, opts) do
+  defp link(zone, guild_id, channels, parent_id, opts) do
     wanted = channel_name(zone)
 
-    case Enum.find(channels, &(String.downcase(&1.name) == wanted)) do
-      nil -> create_and_bind(zone, guild_id, wanted, opts)
+    case find_channel(channels, wanted) do
+      nil -> create_and_bind(zone, guild_id, wanted, parent_id, opts)
       channel -> bind(zone, guild_id, channel, opts, "reused ##{channel.name}")
     end
   end
 
-  defp create_and_bind(zone, guild_id, name, opts) do
+  defp create_and_bind(zone, guild_id, name, parent_id, opts) do
     if opts[:dry_run] do
       Mix.shell().info("  #{zone.name}: would create ##{name}")
     else
-      case Client.create_voice_channel(guild_id, name, user_limit: zone.capacity) do
+      case Client.create_voice_channel(guild_id, name,
+             user_limit: zone.capacity,
+             parent_id: parent_id
+           ) do
         {:ok, channel} ->
           bind(zone, guild_id, channel, opts, "created ##{channel.name}")
 
@@ -96,6 +116,65 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
     end
   end
 
+  # --- the lobby ----------------------------------------------------------------
+
+  # Where people are put back when they leave a meeting room. Deliberately not
+  # bound to the lobby zone: `auto_move` on the commons would drag anyone
+  # crossing the floor into a call. All the app wants is the id, in `.env`.
+  defp lobby(zones, guild_id, channels, parent_id, opts) do
+    cond do
+      not Keyword.get(opts, :lobby, true) ->
+        :ok
+
+      configured_lobby_id() ->
+        Mix.shell().info("\nLobby: already set by DISCORD_LOBBY_CHANNEL_ID.")
+
+      true ->
+        name = lobby_name(zones)
+
+        case find_channel(channels, name) do
+          nil -> create_lobby(guild_id, name, parent_id, opts)
+          channel -> announce_lobby(channel, "reused ##{channel.name}")
+        end
+    end
+  end
+
+  defp create_lobby(guild_id, name, parent_id, opts) do
+    if opts[:dry_run] do
+      Mix.shell().info("\nLobby: would create ##{name}")
+    else
+      # No user_limit — a full lobby would reject the move back out of a room.
+      case Client.create_voice_channel(guild_id, name, parent_id: parent_id) do
+        {:ok, channel} ->
+          announce_lobby(channel, "created ##{channel.name}")
+
+        {:error, :missing_permission} ->
+          Mix.shell().error("\nLobby: the bot needs Manage Channels to create ##{name}")
+
+        {:error, reason} ->
+          Mix.shell().error("\nLobby: could not create ##{name} — #{inspect(reason)}")
+      end
+    end
+  end
+
+  defp announce_lobby(channel, note) do
+    Mix.shell().info("""
+
+    Lobby: #{note}
+      Put this in .env, so leaving a room returns people to it:
+      DISCORD_LOBBY_CHANNEL_ID=#{channel.id}\
+    """)
+  end
+
+  defp lobby_name(zones) do
+    case Enum.find(zones, &(&1.kind == :lobby)) do
+      nil -> "lobby"
+      zone -> String.downcase(zone.slug)
+    end
+  end
+
+  defp configured_lobby_id, do: Application.get_env(:breakaway, :discord, [])[:lobby_channel_id]
+
   # --- resolution ---------------------------------------------------------------
 
   defp check_configured do
@@ -127,15 +206,64 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
     end
   end
 
+  # Channels land at the guild root unless asked to group them.
+  defp resolve_category(guild_id, opts) do
+    case opts[:category] do
+      nil ->
+        {:ok, nil}
+
+      name ->
+        case Client.list_categories(guild_id) do
+          {:ok, categories} ->
+            case Enum.find(categories, &(String.downcase(&1.name) == String.downcase(name))) do
+              nil ->
+                create_category(guild_id, name, opts)
+
+              category ->
+                Mix.shell().info("Grouping under the existing #{category.name} category.\n")
+                {:ok, category.id}
+            end
+
+          {:error, reason} ->
+            {:error, "Could not list the guild's categories — #{inspect(reason)}"}
+        end
+    end
+  end
+
+  defp create_category(guild_id, name, opts) do
+    if opts[:dry_run] do
+      Mix.shell().info("Would create the #{name} category.\n")
+      {:ok, nil}
+    else
+      case Client.create_category(guild_id, name) do
+        {:ok, category} ->
+          Mix.shell().info("Created the #{category.name} category.\n")
+          {:ok, category.id}
+
+        {:error, :missing_permission} ->
+          {:error, "The bot needs Manage Channels to create the #{name} category."}
+
+        {:error, reason} ->
+          {:error, "Could not create the #{name} category — #{inspect(reason)}"}
+      end
+    end
+  end
+
+  defp zones(space) do
+    Worlds.list_zones!(query: [filter: [space_id: space.id]], authorize?: false)
+  end
+
   # Meeting rooms only unless --all: binding the lounge means walking past the
   # couch drags you into a call.
-  defp rooms(space, opts) do
+  defp rooms(zones, opts) do
     kinds = if opts[:all], do: [:meeting, :social, :focus], else: [:meeting]
 
-    Worlds.list_zones!(query: [filter: [space_id: space.id]], authorize?: false)
+    zones
     |> Enum.filter(&(&1.kind in kinds and is_nil(&1.discord_channel_id)))
     |> Enum.sort_by(& &1.name)
   end
+
+  defp find_channel(channels, name), do: Enum.find(channels, &(String.downcase(&1.name) == name))
 
   defp channel_name(zone), do: String.downcase(zone.slug)
 end

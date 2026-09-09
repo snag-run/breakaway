@@ -57,6 +57,37 @@ defmodule Breakaway.Discord.Client do
     end
   end
 
+  @doc "Categories (type 4) in a guild, in position order."
+  def list_categories(guild_id) do
+    case request(:get, "/guilds/#{guild_id}/channels") do
+      {:ok, channels} when is_list(channels) ->
+        {:ok,
+         channels
+         |> Enum.filter(&(&1["type"] == 4))
+         |> Enum.map(&%{id: &1["id"], name: &1["name"], position: &1["position"]})
+         |> Enum.sort_by(& &1.position)}
+
+      other ->
+        other
+    end
+  end
+
+  @doc """
+  Create a category to group voice channels under. Needs **Manage Channels**.
+  """
+  def create_category(guild_id, name) do
+    case request(:post, "/guilds/#{guild_id}/channels", %{name: name, type: 4}) do
+      {:ok, channel} ->
+        {:ok, %{id: channel["id"], name: channel["name"]}}
+
+      {:error, {:http, 403, _}} ->
+        {:error, :missing_permission}
+
+      other ->
+        other
+    end
+  end
+
   @doc """
   Move a member who is already connected to voice into `channel_id`.
 

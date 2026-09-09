@@ -97,6 +97,19 @@ the server can move them between voice channels.
    include the lounge, kitchen and focus pods — off by default, because binding
    the lounge means walking past the couch drags you into a call.
 
+   It also makes the lobby channel and prints the `DISCORD_LOBBY_CHANNEL_ID`
+   line to paste into `.env` — that's what returns people to a lobby when they
+   walk out of a room. Pass `--no-lobby` to skip it, or set the variable
+   yourself. The channel is deliberately not bound to the commons: `auto_move`
+   there would drag anyone crossing the floor into a call.
+
+   New channels land at the server root. Pass `--category Breakaway` to group
+   them under a category of that name instead, reusing one that already exists.
+
+   ```bash
+   mix breakaway.discord.setup --category Breakaway --all
+   ```
+
    Or do it by hand: sign in and open **Discord** in the sidebar.
 
 ### What actually happens when you walk into a room
@@ -110,9 +123,10 @@ voice** — there's no API for it. So the first hop is always manual: you get a
 "join" link, and from then on the server can move you between rooms freely.
 That's a platform limitation, not a missing feature.
 
-Leaving a room only moves you if `DISCORD_LOBBY_CHANNEL_ID` is set. Without it
-you stay in the call, on the assumption that silently hanging up on somebody
-mid-sentence is worse than leaving them connected.
+Leaving a room only moves you if `DISCORD_LOBBY_CHANNEL_ID` is set — step 6
+above prints it for you. Without it you stay in the call, on the assumption that
+silently hanging up on somebody mid-sentence is worse than leaving them
+connected.
 
 ### ...and the other direction
 

@@ -98,4 +98,48 @@ defmodule Breakaway.Discord.ClientTest do
 
     Application.put_env(:breakaway, :discord, previous)
   end
+
+  test "lists only categories, in position order" do
+    stub(fn conn ->
+      Req.Test.json(conn, [
+        %{"id" => "1", "name" => "Voice", "type" => 4, "position" => 1},
+        %{"id" => "2", "name" => "aurora", "type" => 2, "position" => 0},
+        %{"id" => "3", "name" => "Text", "type" => 4, "position" => 0}
+      ])
+    end)
+
+    assert {:ok, categories} = Client.list_categories("g1")
+    assert Enum.map(categories, & &1.name) == ["Text", "Voice"]
+  end
+
+  test "creating a category asks Discord for type 4" do
+    stub(fn conn ->
+      assert conn.method == "POST"
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert Jason.decode!(body) == %{"name" => "Breakaway", "type" => 4}
+      Req.Test.json(conn, %{"id" => "cat-1", "name" => "Breakaway", "type" => 4})
+    end)
+
+    assert {:ok, %{id: "cat-1", name: "Breakaway"}} = Client.create_category("g1", "Breakaway")
+  end
+
+  test "creating a category without Manage Channels is reported distinctly" do
+    stub(fn conn ->
+      conn
+      |> Plug.Conn.put_status(403)
+      |> Req.Test.json(%{"message" => "Missing Permissions"})
+    end)
+
+    assert {:error, :missing_permission} = Client.create_category("g1", "Breakaway")
+  end
+
+  test "a created voice channel can be nested in a category" do
+    stub(fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert %{"parent_id" => "cat-1", "type" => 2} = Jason.decode!(body)
+      Req.Test.json(conn, %{"id" => "chan-1", "name" => "cell", "type" => 2})
+    end)
+
+    assert {:ok, %{id: "chan-1"}} = Client.create_voice_channel("g1", "cell", parent_id: "cat-1")
+  end
 end
