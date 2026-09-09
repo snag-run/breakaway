@@ -28,8 +28,9 @@ defmodule Breakaway.World do
   @doc "Use the nearest piece of furniture, or stop using the current one."
   def interact(space_id, user_id), do: safely(fn -> SpaceServer.interact(space_id, user_id) end)
 
-  def set_status(space_id, user_id, text),
-    do: safely(fn -> SpaceServer.set_status(space_id, user_id, text) end)
+  @doc "Push a changed display name, colour or status onto the floor."
+  def refresh_profile(space_id, user),
+    do: safely(fn -> SpaceServer.refresh_profile(space_id, user) end)
 
   def snapshot(space_id), do: safely(fn -> SpaceServer.snapshot(space_id) end)
 

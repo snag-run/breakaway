@@ -47,7 +47,7 @@ defmodule Breakaway.World.SpaceServer do
   def leave(space_id, user_id), do: call(space_id, {:leave, user_id})
   def set_input(space_id, user_id, vec), do: cast(space_id, {:input, user_id, vec})
   def walk_to(space_id, user_id, point), do: cast(space_id, {:walk_to, user_id, point})
-  def set_status(space_id, user_id, text), do: call(space_id, {:status, user_id, text})
+  def refresh_profile(space_id, user), do: call(space_id, {:profile, user})
   def interact(space_id, user_id), do: call(space_id, {:interact, user_id})
   def snapshot(space_id), do: call(space_id, :snapshot)
   def zone_occupancy(space_id), do: call(space_id, :zone_occupancy)
@@ -114,14 +114,22 @@ defmodule Breakaway.World.SpaceServer do
 
   def handle_call({:leave, user_id}, _from, state), do: {:reply, :ok, remove(state, user_id)}
 
-  def handle_call({:status, user_id, text}, _from, state) do
-    case state.avatars[user_id] do
+  # Someone edited their profile — show the change to everyone without making
+  # them walk out and back in.
+  def handle_call({:profile, user}, _from, state) do
+    case state.avatars[user.id] do
       nil ->
         {:reply, :ok, state}
 
       avatar ->
-        state = put_in(state.avatars[user_id], %{avatar | status: text})
-        {:reply, :ok, %{state | dirty?: true}}
+        updated = %{
+          avatar
+          | name: user.display_name,
+            status: user.status_message,
+            palette: rem(user.avatar_palette || 0, Atlas.palette_count())
+        }
+
+        {:reply, :ok, %{state | avatars: Map.put(state.avatars, user.id, updated), dirty?: true}}
     end
   end
 

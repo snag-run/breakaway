@@ -8,6 +8,7 @@ defmodule BreakawayWeb.OfficeLive do
   """
   use BreakawayWeb, :live_view
 
+  alias Breakaway.Accounts
   alias Breakaway.World
   alias Breakaway.Worlds
 
@@ -31,6 +32,7 @@ defmodule BreakawayWeb.OfficeLive do
            roster_key: nil,
            voice: nil,
            my_zone: nil,
+           editing_profile?: false,
            page_title: "Breakaway"
          )}
 
@@ -47,6 +49,7 @@ defmodule BreakawayWeb.OfficeLive do
             roster_key: nil,
             my_zone: nil,
             voice: nil,
+            editing_profile?: false,
             page_title: space.name
           )
 
@@ -122,6 +125,36 @@ defmodule BreakawayWeb.OfficeLive do
   def handle_event("interact", _params, socket) do
     World.interact(socket.assigns.space.id, socket.assigns.current_user.id)
     {:noreply, socket}
+  end
+
+  def handle_event("edit_profile", _params, socket),
+    do: {:noreply, assign(socket, :editing_profile?, true)}
+
+  def handle_event("cancel_profile", _params, socket),
+    do: {:noreply, assign(socket, :editing_profile?, false)}
+
+  def handle_event("save_profile", params, socket) do
+    attrs = %{
+      display_name: params["display_name"] |> to_string() |> String.trim() |> String.slice(0, 40),
+      status_message:
+        params["status_message"] |> to_string() |> String.trim() |> String.slice(0, 60),
+      avatar_palette: to_palette(params["avatar_palette"])
+    }
+
+    # An empty status means "clear it", not "set it to the empty string".
+    attrs = if attrs.status_message == "", do: %{attrs | status_message: nil}, else: attrs
+
+    case Accounts.update_profile(socket.assigns.current_user, attrs,
+           actor: socket.assigns.current_user
+         ) do
+      {:ok, user} ->
+        World.refresh_profile(socket.assigns.space.id, user)
+
+        {:noreply, assign(socket, current_user: user, editing_profile?: false)}
+
+      {:error, error} ->
+        {:noreply, put_flash(socket, :error, "Could not save: #{Exception.message(error)}")}
+    end
   end
 
   def handle_event("dismiss_voice", _params, socket), do: {:noreply, assign(socket, :voice, nil)}
@@ -387,6 +420,19 @@ defmodule BreakawayWeb.OfficeLive do
       _ -> false
     end
   end
+
+  defp to_palette(value) do
+    case Integer.parse(to_string(value)) do
+      {n, _} -> rem(abs(n), Breakaway.Worlds.Atlas.palette_count())
+      :error -> 0
+    end
+  end
+
+  defp palettes, do: 0..(Breakaway.Worlds.Atlas.palette_count() - 1)
+
+  # The avatar sheet is one row per direction, four directions per palette, with
+  # the walk cycle across. This picks each palette's front-facing standing frame.
+  defp palette_preview_offset(palette), do: palette * 4 * 40 * 2
 
   defp kind_label(:meeting), do: "Meeting room"
   defp kind_label(:focus), do: "Focus pods"

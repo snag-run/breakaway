@@ -135,19 +135,117 @@
     </div>
 
     <footer class="border-t border-white/5 px-4 py-3">
-      <div class="flex items-center justify-between">
-        <div class="min-w-0">
+      <div class="flex items-center justify-between gap-2">
+        <button
+          phx-click="edit_profile"
+          class="-mx-2 min-w-0 flex-1 rounded-lg px-2 py-1 text-left hover:bg-white/5"
+          title="Edit how you look"
+        >
           <p class="truncate text-sm font-medium">{@current_user.display_name}</p>
-          <p class="truncate text-xs text-zinc-500">@{@current_user.discord_username}</p>
-        </div>
+          <p class="truncate text-xs text-zinc-500">
+            {@current_user.status_message || "@" <> @current_user.discord_username}
+          </p>
+        </button>
         <.link
           href={~p"/sign-out"}
           method="get"
-          class="text-xs text-zinc-500 hover:text-zinc-300"
+          class="shrink-0 text-xs text-zinc-500 hover:text-zinc-300"
         >
           Sign out
         </.link>
       </div>
     </footer>
   </aside>
+</div>
+
+<div
+  :if={@editing_profile?}
+  class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
+  phx-window-keydown="cancel_profile"
+  phx-key="Escape"
+>
+  <div class="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1d24] p-6 shadow-2xl">
+    <h2 class="text-lg font-semibold text-zinc-100">How you look</h2>
+    <p class="mt-1 text-sm text-zinc-500">Everyone on the floor sees this.</p>
+
+    <form phx-submit="save_profile" class="mt-5 space-y-5">
+      <div>
+        <label
+          for="display_name"
+          class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400"
+        >
+          Name
+        </label>
+        <input
+          id="display_name"
+          type="text"
+          name="display_name"
+          value={@current_user.display_name}
+          maxlength="40"
+          required
+          class="w-full rounded-lg border border-white/10 bg-[#14161c] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-indigo-400"
+        />
+      </div>
+
+      <div>
+        <label
+          for="status_message"
+          class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400"
+        >
+          Status
+        </label>
+        <input
+          id="status_message"
+          type="text"
+          name="status_message"
+          value={@current_user.status_message}
+          maxlength="60"
+          placeholder="Heads down until 3"
+          class="w-full rounded-lg border border-white/10 bg-[#14161c] px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-indigo-400"
+        />
+      </div>
+
+      <fieldset>
+        <legend class="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Character
+        </legend>
+        <div class="flex flex-wrap gap-2">
+          <label
+            :for={palette <- palettes()}
+            class="cursor-pointer rounded-xl border-2 border-transparent bg-[#14161c] p-1 hover:border-white/20 has-[:checked]:border-amber-300"
+          >
+            <input
+              type="radio"
+              name="avatar_palette"
+              value={palette}
+              checked={palette == @current_user.avatar_palette}
+              class="sr-only"
+            />
+            <span
+              class="block [image-rendering:pixelated]"
+              style={"width:64px;height:80px;background-image:url('/images/avatars.png');background-size:320px 1920px;background-position:0 -#{palette_preview_offset(palette)}px"}
+              role="img"
+              aria-label={"Character #{palette + 1}"}
+            ></span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          phx-click="cancel_profile"
+          class="rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400"
+        >
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
 </div>

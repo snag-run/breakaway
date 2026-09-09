@@ -127,6 +127,74 @@ defmodule BreakawayWeb.OfficeLiveTest do
     assert html =~ "2 here now"
   end
 
+  describe "profile editor" do
+    test "opens from the footer and shows your current details", %{conn: conn, user: user} do
+      {:ok, view, _} = conn |> log_in_user(user) |> live(~p"/office")
+
+      html = view |> element("button", "Ada") |> render_click()
+
+      assert html =~ "How you look"
+      assert html =~ ~s(value="Ada")
+    end
+
+    test "saving updates the person and everyone else's view of them",
+         %{conn: conn, user: user, space: space} do
+      {:ok, view, _} = conn |> log_in_user(user) |> live(~p"/office")
+      render_click(view, "edit_profile", %{})
+
+      html =
+        render_submit(view, "save_profile", %{
+          "display_name" => "Ada L",
+          "status_message" => "Heads down until 3",
+          "avatar_palette" => "3"
+        })
+
+      # The editor closes and the sidebar shows the new name.
+      refute html =~ "How you look"
+      assert html =~ "Ada L"
+
+      # ...and so does the floor, without walking out and back in.
+      Process.sleep(150)
+      avatar = World.snapshot(space.id).avatars |> hd()
+      assert avatar.n == "Ada L"
+      assert avatar.p == 3
+      assert avatar.s == "Heads down until 3"
+    end
+
+    test "clearing the status removes it rather than storing a blank",
+         %{conn: conn, user: user} do
+      {:ok, view, _} = conn |> log_in_user(user) |> live(~p"/office")
+
+      render_submit(view, "save_profile", %{
+        "display_name" => "Ada",
+        "status_message" => "busy",
+        "avatar_palette" => "0"
+      })
+
+      render_submit(view, "save_profile", %{
+        "display_name" => "Ada",
+        "status_message" => "   ",
+        "avatar_palette" => "0"
+      })
+
+      user = Ash.get!(Breakaway.Accounts.User, user.id, authorize?: false)
+      assert user.status_message == nil
+    end
+
+    test "a nonsense palette falls back rather than crashing", %{conn: conn, user: user} do
+      {:ok, view, _} = conn |> log_in_user(user) |> live(~p"/office")
+
+      render_submit(view, "save_profile", %{
+        "display_name" => "Ada",
+        "status_message" => "",
+        "avatar_palette" => "not-a-number"
+      })
+
+      user = Ash.get!(Breakaway.Accounts.User, user.id, authorize?: false)
+      assert user.avatar_palette == 0
+    end
+  end
+
   test "leaving the page takes the avatar off the floor", %{conn: conn, user: user, space: space} do
     {:ok, view, _} = conn |> log_in_user(user) |> live(~p"/office")
     assert length(World.snapshot(space.id).avatars) == 1

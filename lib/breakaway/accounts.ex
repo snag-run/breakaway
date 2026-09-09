@@ -4,7 +4,11 @@ defmodule Breakaway.Accounts do
 
   resources do
     resource Breakaway.Accounts.Token
-    resource Breakaway.Accounts.User
+
+    resource Breakaway.Accounts.User do
+      define :update_profile, action: :update_profile
+    end
+
     resource Breakaway.Accounts.UserIdentity
   end
 end
