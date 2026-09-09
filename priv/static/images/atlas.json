@@ -1,0 +1,204 @@
+{
+  "tiles": {
+    "src": "/images/tileset.png",
+    "size": 32,
+    "columns": 8,
+    "names": [
+      "void",
+      "floor_wood",
+      "floor_wood_dark",
+      "carpet_teal",
+      "carpet_plum",
+      "concrete",
+      "kitchen_tile",
+      "grass",
+      "water",
+      "stone_path",
+      "wall_top",
+      "wall_front",
+      "wall_window",
+      "glass_top",
+      "glass_front",
+      "door_mat",
+      "rug_teal",
+      "rug_red"
+    ],
+    "index": {
+      "void": 0,
+      "floor_wood": 1,
+      "floor_wood_dark": 2,
+      "carpet_teal": 3,
+      "carpet_plum": 4,
+      "concrete": 5,
+      "kitchen_tile": 6,
+      "grass": 7,
+      "water": 8,
+      "stone_path": 9,
+      "wall_top": 10,
+      "wall_front": 11,
+      "wall_window": 12,
+      "glass_top": 13,
+      "glass_front": 14,
+      "door_mat": 15,
+      "rug_teal": 16,
+      "rug_red": 17
+    },
+    "solid": [
+      "water",
+      "wall_top",
+      "wall_front",
+      "wall_window",
+      "glass_top",
+      "glass_front"
+    ]
+  },
+  "props": {
+    "src": "/images/furniture.png",
+    "cell": 64,
+    "columns": 8,
+    "names": [
+      "desk",
+      "desk_double",
+      "office_chair",
+      "chair",
+      "meeting_table",
+      "couch",
+      "coffee_table",
+      "whiteboard",
+      "tv_screen",
+      "bookshelf",
+      "plant_small",
+      "plant_tall",
+      "coffee_machine",
+      "water_cooler",
+      "fridge",
+      "printer",
+      "server_rack",
+      "beanbag",
+      "arcade",
+      "lamp"
+    ],
+    "meta": {
+      "desk": {
+        "index": 0,
+        "w": 2,
+        "h": 1
+      },
+      "desk_double": {
+        "index": 1,
+        "w": 2,
+        "h": 2
+      },
+      "office_chair": {
+        "index": 2,
+        "w": 1,
+        "h": 1
+      },
+      "chair": {
+        "index": 3,
+        "w": 1,
+        "h": 1
+      },
+      "meeting_table": {
+        "index": 4,
+        "w": 2,
+        "h": 2
+      },
+      "couch": {
+        "index": 5,
+        "w": 2,
+        "h": 1
+      },
+      "coffee_table": {
+        "index": 6,
+        "w": 1,
+        "h": 1
+      },
+      "whiteboard": {
+        "index": 7,
+        "w": 2,
+        "h": 1
+      },
+      "tv_screen": {
+        "index": 8,
+        "w": 2,
+        "h": 1
+      },
+      "bookshelf": {
+        "index": 9,
+        "w": 1,
+        "h": 1
+      },
+      "plant_small": {
+        "index": 10,
+        "w": 1,
+        "h": 1
+      },
+      "plant_tall": {
+        "index": 11,
+        "w": 1,
+        "h": 1
+      },
+      "coffee_machine": {
+        "index": 12,
+        "w": 1,
+        "h": 1
+      },
+      "water_cooler": {
+        "index": 13,
+        "w": 1,
+        "h": 1
+      },
+      "fridge": {
+        "index": 14,
+        "w": 1,
+        "h": 1
+      },
+      "printer": {
+        "index": 15,
+        "w": 1,
+        "h": 1
+      },
+      "server_rack": {
+        "index": 16,
+        "w": 1,
+        "h": 1
+      },
+      "beanbag": {
+        "index": 17,
+        "w": 1,
+        "h": 1
+      },
+      "arcade": {
+        "index": 18,
+        "w": 1,
+        "h": 1
+      },
+      "lamp": {
+        "index": 19,
+        "w": 1,
+        "h": 1
+      }
+    }
+  },
+  "avatars": {
+    "src": "/images/avatars.png",
+    "frameWidth": 32,
+    "frameHeight": 40,
+    "frames": 4,
+    "directions": [
+      "down",
+      "left",
+      "right",
+      "up"
+    ],
+    "palettes": [
+      "amber",
+      "teal",
+      "violet",
+      "rose",
+      "moss",
+      "slate"
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+<div class="min-h-screen bg-[#14161c] text-zinc-100">
+  <div class="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-6 py-16 text-center">
+    <img
+      src={~p"/images/avatars.png"}
+      alt=""
+      aria-hidden="true"
+      class="mb-8 h-24 w-auto [image-rendering:pixelated] [clip-path:inset(0_0_75%_0)]"
+    />
+
+    <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl">
+      A room your team can walk around in
+    </h1>
+
+    <p class="mt-5 max-w-xl text-base leading-relaxed text-zinc-400">
+      Breakaway is a 2D coworking floor. Everyone gets an avatar, the desks are real
+      places, and the meeting rooms are wired to Discord voice channels — walk into
+      one and you are in the call.
+    </p>
+
+    <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+      <.link
+        href={~p"/sign-in"}
+        class="rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-400"
+      >
+        Sign in with Discord
+      </.link>
+      <.link
+        href={~p"/office"}
+        class="rounded-xl bg-white/5 px-5 py-3 text-sm font-semibold hover:bg-white/10"
+      >
+        Enter the office
+      </.link>
+    </div>
+
+    <dl class="mt-16 grid w-full gap-4 text-left sm:grid-cols-3">
+      <div class="rounded-2xl border border-white/5 bg-[#1a1d24] p-5">
+        <dt class="text-sm font-semibold">Presence you can see</dt>
+        <dd class="mt-1.5 text-sm text-zinc-400">
+          Server-authoritative movement at 20Hz. Who is at their desk, who is in a
+          room, who is by the coffee machine.
+        </dd>
+      </div>
+      <div class="rounded-2xl border border-white/5 bg-[#1a1d24] p-5">
+        <dt class="text-sm font-semibold">Rooms that are calls</dt>
+        <dd class="mt-1.5 text-sm text-zinc-400">
+          Bind a meeting room to a Discord voice channel. Crossing the threshold
+          moves you in; walking out takes you back.
+        </dd>
+      </div>
+      <div class="rounded-2xl border border-white/5 bg-[#1a1d24] p-5">
+        <dt class="text-sm font-semibold">One identity</dt>
+        <dd class="mt-1.5 text-sm text-zinc-400">
+          The Discord account you sign in with is the account we move between
+          channels. Nothing else to set up.
+        </dd>
+      </div>
+    </dl>
+  </div>
+</div>

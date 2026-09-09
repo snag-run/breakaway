@@ -1,0 +1,125 @@
+<div class="min-h-screen bg-[#14161c] text-zinc-100">
+  <div class="mx-auto max-w-3xl px-6 py-10">
+    <header class="mb-8 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold">Discord</h1>
+        <p class="mt-1 text-sm text-zinc-400">
+          Link each meeting room to a voice channel. Walking into the room then puts
+          you in that call.
+        </p>
+      </div>
+      <.link
+        navigate={~p"/office"}
+        class="shrink-0 rounded-lg bg-white/5 px-3 py-2 text-sm font-medium hover:bg-white/10"
+      >
+        Back to the office
+      </.link>
+    </header>
+
+    <div :if={!@bot_configured?} class="mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+      <p class="text-sm font-medium text-amber-200">No bot token configured</p>
+      <p class="mt-1 text-sm text-amber-100/70">
+        Set <code class="rounded bg-black/30 px-1.5 py-0.5">DISCORD_BOT_TOKEN</code>
+        and restart. The bot must be in your server with the
+        <strong>Move Members</strong> permission.
+      </p>
+    </div>
+
+    <section :if={@guilds != []} class="mb-6">
+      <label class="mb-2 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+        Server
+      </label>
+      <form phx-change="select_guild">
+        <select
+          name="guild_id"
+          class="w-full rounded-lg border border-white/10 bg-[#1a1d24] px-3 py-2 text-sm outline-none focus:border-indigo-400"
+        >
+          <option
+            :for={guild <- @guilds}
+            value={guild.id}
+            selected={guild.id == @selected_guild}
+          >
+            {guild.name}
+          </option>
+        </select>
+      </form>
+
+      <p :if={@channel_error} class="mt-2 text-sm text-rose-300">{@channel_error}</p>
+      <p :if={!@channel_error and @channels == [] and @bot_configured?} class="mt-2 text-sm text-zinc-500">
+        No voice channels found in this server.
+      </p>
+    </section>
+
+    <section class="space-y-3">
+      <div
+        :for={zone <- @zones}
+        class="rounded-xl border border-white/5 bg-[#1a1d24] p-4"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="font-medium">
+              {zone.name}
+              <span class="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[11px] font-normal text-zinc-400">
+                {zone.kind}
+              </span>
+            </p>
+            <p class="mt-0.5 text-xs text-zinc-500">
+              <%= if zone.discord_channel_id do %>
+                Linked to #{zone.discord_channel_name || zone.discord_channel_id}
+              <% else %>
+                Not linked
+              <% end %>
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <form phx-change="bind" class="flex items-center gap-2">
+              <input type="hidden" name="zone_id" value={zone.id} />
+              <select
+                name="channel_id"
+                disabled={!@bot_configured? or @channels == []}
+                class="rounded-lg border border-white/10 bg-[#14161c] px-3 py-1.5 text-sm outline-none focus:border-indigo-400 disabled:opacity-40"
+              >
+                <option value="">— none —</option>
+                <option
+                  :for={channel <- @channels}
+                  value={channel.id}
+                  selected={channel.id == zone.discord_channel_id}
+                >
+                  #{channel.name}
+                </option>
+              </select>
+            </form>
+
+            <button
+              :if={zone.discord_channel_id}
+              phx-click="toggle_auto"
+              phx-value-zone_id={zone.id}
+              title="Move people automatically when they walk in"
+              class={[
+                "rounded-lg px-2.5 py-1.5 text-xs font-medium",
+                zone.auto_move && "bg-emerald-500/15 text-emerald-300",
+                !zone.auto_move && "bg-white/5 text-zinc-400"
+              ]}
+            >
+              {if zone.auto_move, do: "Auto-move on", else: "Auto-move off"}
+            </button>
+
+            <button
+              :if={zone.discord_channel_id}
+              phx-click="unbind"
+              phx-value-zone_id={zone.id}
+              class="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/10"
+            >
+              Unlink
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p :if={@zones == []} class="rounded-xl border border-white/5 bg-[#1a1d24] p-6 text-center text-sm text-zinc-500">
+        No rooms yet — run <code class="rounded bg-black/30 px-1.5 py-0.5">mix breakaway.seed</code>.
+      </p>
+    </section>
+  </div>
+</div>
