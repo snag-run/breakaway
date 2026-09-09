@@ -171,6 +171,32 @@ defmodule Breakaway.Discord.VoiceSyncTest do
     refute_receive {:voice, _}, 100
   end
 
+  test "cancelling the walk hands you back to the lobby", ctx do
+    previous = Application.get_env(:breakaway, :discord)
+    Application.put_env(:breakaway, :discord, Keyword.put(previous, :lobby_channel_id, "lobby-9"))
+    on_exit(fn -> Application.put_env(:breakaway, :discord, previous) end)
+
+    stub(fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      assert Jason.decode!(body) == %{"channel_id" => "lobby-9"}
+      Req.Test.json(conn, %{})
+    end)
+
+    cell = Enum.find(ctx.zones, &(&1.slug == "cell"))
+
+    VoiceSync.abandon(%{
+      space_id: ctx.space.id,
+      user_id: ctx.user.id,
+      discord_id: ctx.user.discord_id,
+      name: ctx.user.display_name,
+      zone: cell,
+      voice_channel_id: cell.discord_channel_id
+    })
+
+    assert_receive {:voice, {:returned_to_lobby, zone}}
+    assert zone.slug == "cell"
+  end
+
   test "an unlinked meeting room reports that it is not connected", ctx do
     previous = Application.get_env(:breakaway, :discord)
     Application.put_env(:breakaway, :discord, Keyword.delete(previous, :bot_token))

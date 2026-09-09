@@ -252,6 +252,7 @@ defmodule Breakaway.World.SpaceServer do
 
     state = %{state | avatars: avatars}
     state = Enum.reduce(Map.keys(states), state, &walk_to_their_call/2)
+    Enum.each(Map.keys(states), &check_abandoned_call(state, &1))
 
     {:noreply, %{state | dirty?: state.dirty? or changed?}}
   end
@@ -435,6 +436,29 @@ defmodule Breakaway.World.SpaceServer do
       put_in(state.avatars[user_id], %{avatar | path: route(state, avatar, spot)})
     else
       _ -> state
+    end
+  end
+
+  # The other side of `walk_to_their_call/2`: in a room's call, not in that room,
+  # and no longer on the way — they took the keys and went somewhere else, so
+  # the call should let go of them. Self-limiting, because once they are moved
+  # their channel is the lobby, which belongs to no zone.
+  defp check_abandoned_call(state, user_id) do
+    with %Avatar{voice_channel_id: channel_id} = avatar when is_binary(channel_id) <-
+           state.avatars[user_id],
+         %{slug: slug} = zone <- zone_for_channel(state, channel_id),
+         true <- avatar.zone != slug,
+         [] <- avatar.path do
+      Breakaway.Discord.VoiceSync.handle_abandoned_call(%{
+        space_id: state.space.id,
+        user_id: avatar.user_id,
+        discord_id: avatar.discord_id,
+        name: avatar.name,
+        zone: zone,
+        voice_channel_id: channel_id
+      })
+    else
+      _ -> :ok
     end
   end
 

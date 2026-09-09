@@ -70,6 +70,21 @@ defmodule Breakaway.Discord.VoiceSync do
     end
   end
 
+  @doc """
+  Somebody is in a room's call, is not in that room, and is not walking there.
+
+  They cancelled the walk by taking the keys, or never got in at all. Hand them
+  back to the lobby rather than leaving them talking into a room they are not
+  standing in.
+  """
+  def handle_abandoned_call(event) do
+    Task.Supervisor.start_child(Breakaway.TaskSupervisor, fn -> abandon(event) end)
+    :ok
+  end
+
+  @doc "The synchronous core of `handle_abandoned_call/1` — called directly in tests."
+  def abandon(%{zone: zone} = event), do: return_to_lobby(event, zone)
+
   # --- leaving ----------------------------------------------------------------
 
   # Nothing to do for somebody who was never in the call to begin with.
