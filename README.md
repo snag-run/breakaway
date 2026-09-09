@@ -111,6 +111,11 @@ the server can move them between voice channels.
    zone: `auto_move` on the commons would drag anyone crossing the floor into a
    call.
 
+   And it makes a permanent invite to the server, anchored on the lobby, and
+   prints `DISCORD_INVITE_URL` — set that and the sign-in page offers a "join
+   the server first" link to anyone who is not a member yet. `--no-invite`
+   skips it. The bot needs **Create Instant Invite** for this one.
+
    New channels land at the server root. Pass `--category Breakaway` to group
    them under a category of that name instead, reusing one that already exists.
 

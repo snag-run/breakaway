@@ -36,7 +36,8 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
     all: :boolean,
     space: :string,
     category: :string,
-    lobby: :boolean
+    lobby: :boolean,
+    invite: :boolean
   ]
 
   @impl Mix.Task
@@ -59,7 +60,9 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
           Enum.each(rooms, &link(&1, guild_id, channels, parent_id, opts))
       end
 
-      lobby(guild_id, channels, parent_id, opts)
+      guild_id
+      |> lobby(channels, parent_id, opts)
+      |> then(&invite(guild_id, &1, opts))
 
       Mix.shell().info("\nDone. Walk into a room to try it.")
     else
@@ -131,10 +134,11 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
   defp lobby(guild_id, channels, parent_id, opts) do
     cond do
       not Keyword.get(opts, :lobby, true) ->
-        :ok
+        nil
 
-      configured_lobby_id() ->
+      configured = configured_lobby_id() ->
         Mix.shell().info("\nLobby: already set by DISCORD_LOBBY_CHANNEL_ID.")
+        configured
 
       true ->
         case Enum.find_value(@lobby_names, &find_channel(channels, &1)) do
@@ -144,9 +148,48 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
     end
   end
 
+  # --- the invite ---------------------------------------------------------------
+
+  # Somewhere to send people who are not in the server yet. Anchored on the
+  # lobby, since that is where a newcomer should land.
+  defp invite(_guild_id, nil, _opts), do: :ok
+
+  defp invite(_guild_id, channel_id, opts) do
+    cond do
+      not Keyword.get(opts, :invite, true) ->
+        :ok
+
+      configured_invite_url() ->
+        Mix.shell().info("\nInvite: already set by DISCORD_INVITE_URL.")
+
+      opts[:dry_run] ->
+        Mix.shell().info("\nInvite: would create a permanent one")
+
+      true ->
+        case Client.create_invite(channel_id) do
+          {:ok, invite} ->
+            Mix.shell().info("""
+
+            Invite: created #{invite.url}
+              Put this in .env to show it on the sign-in page:
+              DISCORD_INVITE_URL=#{invite.url}\
+            """)
+
+          {:error, :missing_permission} ->
+            Mix.shell().error("\nInvite: the bot needs Create Instant Invite")
+
+          {:error, reason} ->
+            Mix.shell().error("\nInvite: could not create one — #{inspect(reason)}")
+        end
+    end
+  end
+
+  defp configured_invite_url, do: present(discord_config()[:invite_url])
+
   defp create_lobby(guild_id, name, parent_id, opts) do
     if opts[:dry_run] do
       Mix.shell().info("\nLobby: would create ##{name}")
+      nil
     else
       # No user_limit — a full lobby would reject the move back out of a room.
       case Client.create_voice_channel(guild_id, name, parent_id: parent_id) do
@@ -155,9 +198,11 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
 
         {:error, :missing_permission} ->
           Mix.shell().error("\nLobby: the bot needs Manage Channels to create ##{name}")
+          nil
 
         {:error, reason} ->
           Mix.shell().error("\nLobby: could not create ##{name} — #{inspect(reason)}")
+          nil
       end
     end
   end
@@ -169,6 +214,8 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
       Put this in .env, so leaving a room returns people to it:
       DISCORD_LOBBY_CHANNEL_ID=#{channel.id}\
     """)
+
+    channel.id
   end
 
   defp configured_lobby_id, do: present(discord_config()[:lobby_channel_id])

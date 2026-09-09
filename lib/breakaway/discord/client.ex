@@ -89,6 +89,28 @@ defmodule Breakaway.Discord.Client do
   end
 
   @doc """
+  A permanent invite to the server, anchored on `channel_id`.
+
+  Never expires and has no use limit, because it goes on the sign-in page and
+  has to keep working. Needs the bot to hold **Create Instant Invite**.
+  """
+  def create_invite(channel_id) do
+    case request(:post, "/channels/#{channel_id}/invites", %{max_age: 0, max_uses: 0}) do
+      {:ok, %{"code" => code}} ->
+        {:ok, %{code: code, url: "https://discord.gg/" <> code}}
+
+      {:error, {:http, 403, _}} ->
+        {:error, :missing_permission}
+
+      other ->
+        other
+    end
+  end
+
+  @doc "The invite link shown to people who are not in the server yet, if set."
+  def invite_url, do: config()[:invite_url]
+
+  @doc """
   Move a member who is already connected to voice into `channel_id`.
 
   Discord cannot pull somebody into a call who has no voice connection — that

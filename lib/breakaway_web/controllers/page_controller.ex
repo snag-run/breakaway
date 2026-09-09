@@ -23,7 +23,7 @@ defmodule BreakawayWeb.PageController do
     if conn.assigns[:current_user] do
       redirect(conn, to: ~p"/office")
     else
-      render(conn, :home, layout: false)
+      render(conn, :home, layout: false, invite_url: Breakaway.Discord.Client.invite_url())
     end
   end
 end

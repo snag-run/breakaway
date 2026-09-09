@@ -32,6 +32,19 @@
       </.link>
     </div>
 
+    <p :if={@invite_url} class="mt-5 text-sm text-zinc-500">
+      Not in the Discord server yet?
+      <a
+        href={@invite_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="font-semibold text-indigo-300 underline-offset-4 hover:text-indigo-200 hover:underline"
+      >
+        Join it first
+      </a>
+      — the meeting rooms only work for members.
+    </p>
+
     <dl class="mt-16 grid w-full gap-4 text-left sm:grid-cols-3">
       <div class="rounded-2xl border border-white/5 bg-[#1a1d24] p-5">
         <dt class="text-sm font-semibold">Presence you can see</dt>

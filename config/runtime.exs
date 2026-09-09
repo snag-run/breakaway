@@ -56,7 +56,8 @@ if config_env() == :prod do
     redirect_uri: env.("DISCORD_REDIRECT_URI"),
     bot_token: env.("DISCORD_BOT_TOKEN"),
     guild_id: env.("DISCORD_GUILD_ID"),
-    lobby_channel_id: env.("DISCORD_LOBBY_CHANNEL_ID")
+    lobby_channel_id: env.("DISCORD_LOBBY_CHANNEL_ID"),
+    invite_url: env.("DISCORD_INVITE_URL")
 
   database_url =
     System.get_env("DATABASE_URL") ||

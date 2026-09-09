@@ -134,7 +134,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
     Application.put_env(:breakaway, :discord, Keyword.delete(previous, :bot_token))
 
     assert_raise Mix.Error, ~r/DISCORD_BOT_TOKEN/, fn ->
-      Setup.run(["--space", space.slug])
+      Setup.run(["--space", space.slug, "--no-invite"])
     end
   end
 
@@ -143,7 +143,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
     Application.put_env(:breakaway, :discord, Keyword.delete(previous, :guild_id))
 
     assert_raise Mix.Error, ~r/--guild/, fn ->
-      Setup.run(["--space", space.slug])
+      Setup.run(["--space", space.slug, "--no-invite"])
     end
   end
 
@@ -162,7 +162,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     out = output()
     assert out =~ "Lobby: created #lobby"
@@ -185,7 +185,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     out = output()
     assert out =~ "Lobby: reused #General"
@@ -206,7 +206,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     assert output() =~ "DISCORD_LOBBY_CHANNEL_ID=chan-lobby"
   end
@@ -239,7 +239,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     # Binding it would drag anyone crossing the commons into a call.
     bound = Worlds.list_zones!(query: [filter: [space_id: space.id]], authorize?: false)
@@ -260,7 +260,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     out = output()
     assert out =~ "Lobby: reused #lobby"
@@ -283,7 +283,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     assert output() =~ "already set by DISCORD_LOBBY_CHANNEL_ID"
   end
@@ -294,7 +294,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       Req.Test.json(conn, [])
     end)
 
-    Setup.run(["--space", space.slug, "--dry-run"])
+    Setup.run(["--space", space.slug, "--dry-run", "--no-invite"])
 
     assert output() =~ "Lobby: would create #lobby"
   end
@@ -320,7 +320,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug, "--category", "Breakaway"])
+    Setup.run(["--space", space.slug, "--category", "Breakaway", "--no-invite"])
 
     out = output()
     assert out =~ "Created the Breakaway category"
@@ -345,7 +345,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug, "--category", "breakaway"])
+    Setup.run(["--space", space.slug, "--category", "breakaway", "--no-invite"])
 
     assert output() =~ "Grouping under the existing Breakaway category"
   end
@@ -382,7 +382,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
     end)
 
     assert_raise Mix.Error, ~r/Manage Channels to create the Breakaway category/, fn ->
-      Setup.run(["--space", space.slug, "--category", "Breakaway"])
+      Setup.run(["--space", space.slug, "--category", "Breakaway", "--no-invite"])
     end
 
     assert zone(space, "cell").discord_channel_id == nil
@@ -394,7 +394,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       Req.Test.json(conn, [])
     end)
 
-    Setup.run(["--space", space.slug, "--dry-run", "--category", "Breakaway"])
+    Setup.run(["--space", space.slug, "--dry-run", "--category", "Breakaway", "--no-invite"])
 
     assert output() =~ "Would create the Breakaway category"
   end
@@ -415,7 +415,7 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
       end
     end)
 
-    Setup.run(["--space", space.slug])
+    Setup.run(["--space", space.slug, "--no-invite"])
 
     out = output()
     refute out =~ "already set"
@@ -427,7 +427,94 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
     Application.put_env(:breakaway, :discord, Keyword.put(previous, :guild_id, ""))
 
     assert_raise Mix.Error, ~r/--guild/, fn ->
-      Setup.run(["--space", space.slug])
+      Setup.run(["--space", space.slug, "--no-invite"])
     end
+  end
+
+  # --- the invite ---------------------------------------------------------------
+
+  test "creates a permanent invite on the lobby and prints the line", %{space: space} do
+    Req.Test.stub(Breakaway.Discord.Client, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", _} ->
+          Req.Test.json(conn, [
+            %{"id" => "chan-general", "name" => "General", "type" => 2, "position" => 0}
+          ])
+
+        {"POST", "/api/v10/channels/chan-general/invites"} ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          # Never expires, unlimited uses — it lives on the sign-in page.
+          assert Jason.decode!(body) == %{"max_age" => 0, "max_uses" => 0}
+          Req.Test.json(conn, %{"code" => "abc123"})
+
+        {"POST", _} ->
+          Req.Test.json(conn, %{"id" => "chan-cell", "name" => "cell", "type" => 2})
+      end
+    end)
+
+    Setup.run(["--space", space.slug])
+
+    out = output()
+    assert out =~ "Invite: created https://discord.gg/abc123"
+    assert out =~ "DISCORD_INVITE_URL=https://discord.gg/abc123"
+  end
+
+  test "leaves the invite alone when DISCORD_INVITE_URL is already set", %{space: space} do
+    previous = Application.get_env(:breakaway, :discord)
+    Application.put_env(:breakaway, :discord, Keyword.put(previous, :invite_url, "https://x.y/z"))
+
+    Req.Test.stub(Breakaway.Discord.Client, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", _} ->
+          Req.Test.json(conn, [
+            %{"id" => "chan-general", "name" => "General", "type" => 2, "position" => 0}
+          ])
+
+        {"POST", "/api/v10/channels/chan-general/invites"} ->
+          flunk("should not have made a second invite")
+
+        {"POST", _} ->
+          Req.Test.json(conn, %{"id" => "chan-cell", "name" => "cell", "type" => 2})
+      end
+    end)
+
+    Setup.run(["--space", space.slug])
+
+    assert output() =~ "already set by DISCORD_INVITE_URL"
+  end
+
+  test "says what to do when the bot cannot create an invite", %{space: space} do
+    Req.Test.stub(Breakaway.Discord.Client, fn conn ->
+      case {conn.method, conn.request_path} do
+        {"GET", _} ->
+          Req.Test.json(conn, [
+            %{"id" => "chan-general", "name" => "General", "type" => 2, "position" => 0}
+          ])
+
+        {"POST", "/api/v10/channels/chan-general/invites"} ->
+          conn
+          |> Plug.Conn.put_status(403)
+          |> Req.Test.json(%{"message" => "Missing Permissions"})
+
+        {"POST", _} ->
+          Req.Test.json(conn, %{"id" => "chan-cell", "name" => "cell", "type" => 2})
+      end
+    end)
+
+    Setup.run(["--space", space.slug])
+
+    assert output() =~ "needs Create Instant Invite"
+  end
+
+  test "a dry run creates no invite", %{space: space} do
+    Req.Test.stub(Breakaway.Discord.Client, fn conn ->
+      assert conn.method == "GET"
+      Req.Test.json(conn, [])
+    end)
+
+    Setup.run(["--space", space.slug, "--dry-run"])
+
+    # Nothing to anchor an invite on until the lobby actually exists.
+    refute output() =~ "Invite:"
   end
 end

@@ -116,4 +116,5 @@ config :breakaway, :discord,
     env.("DISCORD_REDIRECT_URI") || "http://localhost:4000/auth/user/discord/callback",
   bot_token: env.("DISCORD_BOT_TOKEN"),
   guild_id: env.("DISCORD_GUILD_ID"),
-  lobby_channel_id: env.("DISCORD_LOBBY_CHANNEL_ID")
+  lobby_channel_id: env.("DISCORD_LOBBY_CHANNEL_ID"),
+  invite_url: env.("DISCORD_INVITE_URL")
