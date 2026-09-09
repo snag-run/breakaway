@@ -197,6 +197,44 @@ defmodule Breakaway.Discord.VoiceSyncTest do
     assert zone.slug == "cell"
   end
 
+  test "a binding on a lobby zone is ignored in both directions", ctx do
+    previous = Application.get_env(:breakaway, :discord)
+    Application.put_env(:breakaway, :discord, Keyword.put(previous, :lobby_channel_id, "lobby-9"))
+    on_exit(fn -> Application.put_env(:breakaway, :discord, previous) end)
+
+    Worlds.create_zone!(
+      %{
+        space_id: ctx.space.id,
+        name: "The Commons",
+        slug: "commons",
+        kind: :lobby,
+        x: 6,
+        y: 6,
+        width: 2,
+        height: 2,
+        accent: "#7c8896"
+      },
+      authorize?: false
+    )
+
+    # Exactly the state the removed settings page could produce: the lobby zone
+    # pointed at the lobby channel, auto_move on.
+    bind_zone!(ctx.space, "commons", channel_id: "lobby-9", channel_name: "General")
+    zones = Worlds.list_zones!(query: [filter: [space_id: ctx.space.id]], authorize?: false)
+
+    stub(fn _conn -> flunk("a lobby binding must never move anybody") end)
+
+    # Walking in must not pull you into the lobby channel...
+    VoiceSync.sync(%{event(ctx, nil, "commons") | zones: zones})
+    # ...and walking out must not treat it as leaving a meeting.
+    VoiceSync.sync(
+      %{event(ctx, "commons", nil) | zones: zones}
+      |> Map.put(:voice_channel_id, "lobby-9")
+    )
+
+    refute_receive {:voice, _}, 100
+  end
+
   test "an unlinked meeting room reports that it is not connected", ctx do
     previous = Application.get_env(:breakaway, :discord)
     Application.put_env(:breakaway, :discord, Keyword.delete(previous, :bot_token))

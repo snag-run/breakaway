@@ -462,8 +462,11 @@ defmodule Breakaway.World.SpaceServer do
     end
   end
 
+  # Lobby zones are skipped on purpose: see `VoiceSync.linked_and_auto?/1`. If
+  # the lobby channel resolved to a zone, sitting in it would drag every avatar
+  # back to the lobby and out of whatever room they had just walked into.
   defp zone_for_channel(state, channel_id),
-    do: Enum.find(state.zones, &(&1.discord_channel_id == channel_id))
+    do: Enum.find(state.zones, &(&1.discord_channel_id == channel_id and &1.kind != :lobby))
 
   # Meeting rooms have a table in the middle, so look outward from the centre
   # for somewhere to actually stand.

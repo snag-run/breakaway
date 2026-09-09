@@ -137,6 +137,12 @@ defmodule Breakaway.Discord.VoiceSync do
 
   defp linked_and_auto?(nil), do: false
 
+  # A lobby is where people are returned *to*, never a room they are pulled
+  # into. Honouring a binding on one is a loop: being in the lobby channel means
+  # the office wants your avatar in the lobby zone, while walking into a room
+  # moves you out of that channel, and the two undo each other every poll.
+  defp linked_and_auto?(%{kind: :lobby}), do: false
+
   defp linked_and_auto?(zone),
     do: is_binary(zone.discord_channel_id) and is_binary(zone.discord_guild_id) and zone.auto_move
 
