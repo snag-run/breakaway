@@ -131,11 +131,17 @@ defmodule BreakawayWeb.OfficeLive do
      |> refresh_roster(state.avatars)}
   end
 
+  # You only hear what's said in the room you're standing in — walking out of a
+  # meeting should end the conversation, not follow you across the floor.
   def handle_info({:said, message}, socket) do
-    {:noreply,
-     socket
-     |> update(:messages, &Enum.take([message | &1], @max_messages))
-     |> push_event("office:say", %{id: message.id, text: message.text})}
+    if message.zone == socket.assigns.my_zone do
+      {:noreply,
+       socket
+       |> update(:messages, &Enum.take([message | &1], @max_messages))
+       |> push_event("office:say", %{id: message.id, text: message.text})}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Outcome of a Discord voice move for *this* user.

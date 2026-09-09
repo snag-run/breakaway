@@ -78,6 +78,40 @@ defmodule BreakawayWeb.OfficeLiveTest do
     refute_push_event(view, "office:say", %{}, 100)
   end
 
+  test "chat is heard in your room, not across the whole floor", %{
+    conn: conn,
+    user: user,
+    space: space
+  } do
+    listener = user_fixture("bob")
+
+    {:ok, speaker_view, _} = conn |> log_in_user(user) |> live(~p"/office")
+    {:ok, listener_view, _} = build_conn() |> log_in_user(listener) |> live(~p"/office")
+    Process.sleep(150)
+
+    # Both start outside any zone, so they can hear each other.
+    render_hook(speaker_view, "say", %{"text" => "on the floor"})
+    assert render(listener_view) =~ "on the floor"
+
+    # Move the listener into the cell; the speaker stays outside.
+    World.move(space.id, listener.id, {0, -1})
+    Process.sleep(400)
+    World.move(space.id, listener.id, {-1, 0})
+    Process.sleep(500)
+    World.move(space.id, listener.id, {0, 0})
+    Process.sleep(200)
+
+    assert World.snapshot(space.id).avatars
+           |> Enum.find(&(&1.id == listener.id))
+           |> Map.get(:z) == "cell"
+
+    render_hook(speaker_view, "say", %{"text" => "cannot hear this"})
+    Process.sleep(100)
+
+    refute render(listener_view) =~ "cannot hear this"
+    assert render(speaker_view) =~ "cannot hear this"
+  end
+
   test "two people see each other in the room", %{conn: conn, user: user} do
     other = user_fixture("bob")
 
