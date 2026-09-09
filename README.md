@@ -82,7 +82,13 @@ the server can move them between voice channels.
 
 5. Copy `.env.example` to `.env` and fill it in. `config/dev.exs` reads `.env`
    on boot, so `mix phx.server` picks it up — anything already exported in your
-   shell wins. `.env` is gitignored; never commit it.
+   shell wins. `.env` is gitignored; never commit it. Leave a key blank and it
+   counts as unset, so the optional ones can stay empty.
+
+   If you use [direnv](https://direnv.net), the committed `.envrc` loads `.env`
+   into your shell too, so one-off `mix` tasks and `psql` see the credentials
+   without `mix phx.server` in the picture. Run `direnv allow` once — and again
+   after editing `.envrc` itself, though not after editing `.env`.
 
 6. Wire the rooms up:
 
