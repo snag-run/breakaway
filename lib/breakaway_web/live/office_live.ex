@@ -114,6 +114,11 @@ defmodule BreakawayWeb.OfficeLive do
     end
   end
 
+  def handle_event("walk_to", %{"x" => x, "y" => y}, socket) do
+    World.walk_to(socket.assigns.space.id, socket.assigns.current_user.id, {x, y})
+    {:noreply, socket}
+  end
+
   def handle_event("interact", _params, socket) do
     World.interact(socket.assigns.space.id, socket.assigns.current_user.id)
     {:noreply, socket}
@@ -284,6 +289,7 @@ defmodule BreakawayWeb.OfficeLive do
     [
       {["W", "A", "S", "D"], "Walk"},
       {["↑", "←", "↓", "→"], "Walk"},
+      {["Click"], "Walk to a spot"},
       {["E"], "Use what you're standing by"},
       {["Enter"], "Talk to the room"},
       {["Esc"], "Back to walking"},

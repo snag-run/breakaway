@@ -17,6 +17,7 @@ defmodule Breakaway.World.SpaceServer do
   alias Breakaway.World.Avatar
   alias Breakaway.Worlds
   alias Breakaway.World.Interactions
+  alias Breakaway.World.Pathfinder
   alias Breakaway.Worlds.Atlas
 
   @tick_ms 50
@@ -28,6 +29,8 @@ defmodule Breakaway.World.SpaceServer do
   # Broadcast at most this often even if nothing moved, so late joiners and
   # idle clients stay in sync.
   @keepalive_ms 1_000
+  # How close counts as having arrived at a waypoint, in tiles.
+  @waypoint_reached 0.12
 
   # --- client API -------------------------------------------------------------
 
@@ -43,6 +46,7 @@ defmodule Breakaway.World.SpaceServer do
   def join(space_id, user, pid), do: call(space_id, {:join, user, pid})
   def leave(space_id, user_id), do: call(space_id, {:leave, user_id})
   def set_input(space_id, user_id, vec), do: cast(space_id, {:input, user_id, vec})
+  def walk_to(space_id, user_id, point), do: cast(space_id, {:walk_to, user_id, point})
   def set_status(space_id, user_id, text), do: call(space_id, {:status, user_id, text})
   def interact(space_id, user_id), do: call(space_id, {:interact, user_id})
   def snapshot(space_id), do: call(space_id, :snapshot)
@@ -155,7 +159,28 @@ defmodule Breakaway.World.SpaceServer do
         {:noreply, state}
 
       avatar ->
-        {:noreply, put_in(state.avatars[user_id], %{avatar | input: {clamp(dx), clamp(dy)}})}
+        input = {clamp(dx), clamp(dy)}
+        # Touching the keys cancels wherever you had clicked.
+        path = if input == {0, 0}, do: avatar.path, else: []
+        {:noreply, put_in(state.avatars[user_id], %{avatar | input: input, path: path})}
+    end
+  end
+
+  def handle_cast({:walk_to, user_id, {tx, ty}}, state) do
+    case state.avatars[user_id] do
+      nil ->
+        {:noreply, state}
+
+      avatar ->
+        avatar = if avatar.seated?, do: stand_up(avatar, state), else: avatar
+        path = route(state, avatar, {tx, ty})
+
+        {:noreply,
+         %{
+           state
+           | avatars: Map.put(state.avatars, user_id, %{avatar | path: path, input: {0, 0}}),
+             dirty?: true
+         }}
     end
   end
 
@@ -205,36 +230,99 @@ defmodule Breakaway.World.SpaceServer do
     end)
   end
 
-  defp move(%Avatar{input: {0, 0}} = avatar, _dt, _state),
-    do: %{avatar | moving?: false}
+  defp move(avatar, dt, state) do
+    cond do
+      not going_anywhere?(avatar) ->
+        %{avatar | moving?: false}
 
-  # Any movement gets you out of the chair first — otherwise the avatar would be
-  # standing inside the seat's own collision box and unable to go anywhere.
-  defp move(%Avatar{seated?: true} = avatar, dt, state),
-    do: avatar |> stand_up(state) |> move(dt, state)
+      # Any movement gets you out of the chair first — otherwise the avatar
+      # would be standing inside the seat's own collision box.
+      avatar.seated? ->
+        avatar |> stand_up(state) |> move(dt, state)
 
-  defp move(%Avatar{input: {dx, dy}} = avatar, dt, state) do
-    # Normalise so diagonals aren't faster than the cardinals.
+      true ->
+        avatar
+        |> apply_step(heading(avatar), dt, state)
+        |> follow_path(avatar)
+    end
+  end
+
+  defp going_anywhere?(%Avatar{input: {0, 0}, path: []}), do: false
+  defp going_anywhere?(_avatar), do: true
+
+  # Held keys win; otherwise steer toward the next click-to-move waypoint.
+  defp heading(%Avatar{input: {dx, dy}}) when dx != 0 or dy != 0, do: {dx * 1.0, dy * 1.0}
+  defp heading(%Avatar{path: [{tx, ty} | _]} = avatar), do: {tx - avatar.x, ty - avatar.y}
+  defp heading(_avatar), do: {0.0, 0.0}
+
+  defp apply_step(avatar, {dx, dy}, dt, state) do
+    # Normalise so diagonals aren't faster than the cardinals, and never
+    # overshoot a waypoint that is closer than one tick's travel.
     len = :math.sqrt(dx * dx + dy * dy)
-    step = @tiles_per_second * dt
-    vx = dx / len * step
-    vy = dy / len * step
 
-    # Resolve each axis independently so walking into a wall at an angle slides
-    # along it instead of stopping dead.
-    x = slide(avatar.x, vx, avatar.y, :x, state)
-    y = slide(avatar.y, vy, x, :y, state)
+    if len < 1.0e-6 do
+      %{avatar | moving?: false}
+    else
+      step = min(@tiles_per_second * dt, len)
+      vx = dx / len * step
+      vy = dy / len * step
 
-    travelled = abs(x - avatar.x) + abs(y - avatar.y)
+      # Resolve each axis independently so walking into a wall at an angle
+      # slides along it instead of stopping dead.
+      x = slide(avatar.x, vx, avatar.y, :x, state)
+      y = slide(avatar.y, vy, x, :y, state)
 
-    %{
-      avatar
-      | x: x,
-        y: y,
-        dir: facing(dx, dy, avatar.dir),
-        moving?: travelled > 0.0001,
-        distance: avatar.distance + travelled
-    }
+      travelled = abs(x - avatar.x) + abs(y - avatar.y)
+
+      %{
+        avatar
+        | x: x,
+          y: y,
+          dir: facing(dx, dy, avatar.dir),
+          moving?: travelled > 0.0001,
+          distance: avatar.distance + travelled
+      }
+    end
+  end
+
+  defp follow_path(%Avatar{path: []} = avatar, _before), do: avatar
+
+  defp follow_path(%Avatar{path: [{tx, ty} | rest]} = avatar, before) do
+    cond do
+      # Wedged against something the route did not account for — give up on the
+      # path rather than shuffling into a wall forever.
+      avatar.x == before.x and avatar.y == before.y ->
+        %{avatar | path: [], moving?: false}
+
+      abs(avatar.x - tx) <= @waypoint_reached and abs(avatar.y - ty) <= @waypoint_reached ->
+        %{avatar | path: rest}
+
+      true ->
+        avatar
+    end
+  end
+
+  # --- routing ----------------------------------------------------------------
+
+  defp route(state, avatar, {tx, ty}) do
+    from = {floor(avatar.x), floor(avatar.y)}
+    to = {floor(tx), floor(ty)}
+
+    case Pathfinder.find(from, to, &walkable_tile?(state, &1)) do
+      [] ->
+        []
+
+      tiles ->
+        waypoints = Enum.map(tiles, fn {x, y} -> {x + 0.5, y + 0.5} end)
+        clear? = fn {x, y} -> not blocked?(state, x, y) end
+
+        Pathfinder.smooth([{avatar.x, avatar.y} | waypoints], clear?)
+    end
+  end
+
+  defp walkable_tile?(state, {x, y}) do
+    x >= 0 and y >= 0 and x < state.space.width and y < state.space.height and
+      not blocked?(state, x + 0.5, y + 0.5)
   end
 
   defp slide(value, delta, other, axis, state) do

@@ -21,6 +21,10 @@ defmodule Breakaway.World do
   def move(space_id, user_id, vec),
     do: safely(fn -> SpaceServer.set_input(space_id, user_id, vec) end)
 
+  @doc "Walk to a point on the floor, routing around furniture and walls."
+  def walk_to(space_id, user_id, point),
+    do: safely(fn -> SpaceServer.walk_to(space_id, user_id, point) end)
+
   @doc "Use the nearest piece of furniture, or stop using the current one."
   def interact(space_id, user_id), do: safely(fn -> SpaceServer.interact(space_id, user_id) end)
 

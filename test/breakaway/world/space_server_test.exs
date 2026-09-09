@@ -137,6 +137,65 @@ defmodule Breakaway.World.SpaceServerTest do
     assert World.snapshot(space.id).avatars == []
   end
 
+  describe "click to move" do
+    # Waits for the avatar to stop, so these don't depend on exact walk timings.
+    defp settle(space, user, timeout \\ 4_000) do
+      deadline = System.monotonic_time(:millisecond) + timeout
+      do_settle(space, user, deadline, nil)
+    end
+
+    defp do_settle(space, user, deadline, previous) do
+      Process.sleep(120)
+      current = me(space, user)
+
+      cond do
+        previous && current.x == previous.x && current.y == previous.y -> current
+        System.monotonic_time(:millisecond) > deadline -> current
+        true -> do_settle(space, user, deadline, current)
+      end
+    end
+
+    test "walks around a wall into the sealed room", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+
+      # (3,4) is inside the cell, which can only be entered through the gap
+      # at (4,5) — a straight line from spawn runs into the wall.
+      World.walk_to(space.id, user.id, {3.5, 4.5})
+      avatar = settle(space, user)
+
+      assert avatar.z == "cell", "ended at #{avatar.x},#{avatar.y}"
+      assert_in_delta avatar.x, 3.5, 0.4
+      assert_in_delta avatar.y, 4.5, 0.4
+    end
+
+    test "clicking a wall does nothing", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+      before = me(space, user)
+
+      World.walk_to(space.id, user.id, {0.5, 0.5})
+      Process.sleep(300)
+
+      avatar = me(space, user)
+      assert_in_delta avatar.x, before.x, 0.01
+      assert_in_delta avatar.y, before.y, 0.01
+    end
+
+    test "pressing a key abandons the clicked route", %{space: space, user: user} do
+      {:ok, _} = World.join(space.id, user)
+
+      World.walk_to(space.id, user.id, {3.5, 4.5})
+      Process.sleep(120)
+
+      World.move(space.id, user.id, {1, 0})
+      Process.sleep(150)
+      World.move(space.id, user.id, {0, 0})
+
+      avatar = settle(space, user)
+
+      refute avatar.z == "cell", "kept following the route after a key press"
+    end
+  end
+
   test "two people share the same floor", %{space: space, user: user} do
     other = user_fixture("bob")
     {:ok, _} = World.join(space.id, user)

@@ -41,6 +41,8 @@ export const Office = {
     this.running = true;
     this.ready = false;         // true once the spritesheets have decoded
     this.zoom = DEFAULT_ZOOM;
+    this.marker = null;
+    this.view = null;
 
     // Register these *before* awaiting anything. `office:map` is pushed during
     // mount, and a listener attached after the await would never see it.
@@ -76,6 +78,7 @@ export const Office = {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("blur", this.onBlur);
+    this.el.removeEventListener("click", this.onClick);
   },
 
   // --- map ------------------------------------------------------------------
@@ -175,9 +178,22 @@ export const Office = {
     // Releasing focus mid-stride would otherwise leave the avatar walking forever.
     this.onBlur = () => { this.held.clear(); this.pushInput(); };
 
+    this.onClick = (e) => {
+      if (!this.view || !this.map) return;
+
+      const rect = this.canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left - this.view.ox) / this.view.tile;
+      const y = (e.clientY - rect.top - this.view.oy) / this.view.tile;
+      if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) return;
+
+      this.marker = { x, y, at: performance.now() };
+      this.pushEvent("walk_to", { x, y });
+    };
+
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onBlur);
+    this.el.addEventListener("click", this.onClick);
   },
 
   typing(el) {
@@ -254,12 +270,15 @@ export const Office = {
     oy = worldH <= this.viewH ? (this.viewH - worldH) / 2 : Math.min(0, Math.max(this.viewH - worldH, oy));
     ox = Math.round(ox); oy = Math.round(oy);
 
+    this.view = { ox, oy, tile };
+
     ctx.save();
     ctx.translate(ox, oy);
     ctx.scale(scale, scale);
 
     ctx.drawImage(this.ground, 0, 0);
     this.drawZones(ctx);
+    this.drawMarker(ctx);
 
     // Props and avatars share one depth-sorted pass so you can stand behind a
     // desk and be occluded by it.
@@ -286,6 +305,27 @@ export const Office = {
     // Labels are drawn unscaled so text stays crisp at any zoom.
     this.drawLabels(ox, oy, tile);
     this.drawInteractHint(ox, oy, tile);
+  },
+
+  // A brief ring where you clicked, so it's obvious the click registered even
+  // when the route takes a moment to get going.
+  drawMarker(ctx) {
+    if (!this.marker) return;
+
+    const age = (performance.now() - this.marker.at) / 600;
+    if (age >= 1) {
+      this.marker = null;
+      return;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = (1 - age) * 0.9;
+    ctx.strokeStyle = "#ffd479";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(this.marker.x * TILE, this.marker.y * TILE, 4 + age * 10, 2 + age * 5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   },
 
   drawZones(ctx) {

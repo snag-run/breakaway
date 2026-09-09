@@ -19,6 +19,8 @@ defmodule Breakaway.World.Avatar do
     dir: :down,
     palette: 0,
     input: {0, 0},
+    # Remaining click-to-move waypoints, in world coordinates.
+    path: [],
     moving?: false,
     seated?: false,
     # distance walked, in tiles — the renderer derives the walk frame from it so
