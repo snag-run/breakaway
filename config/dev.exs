@@ -2,14 +2,41 @@ import Config
 config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure your database
-config :breakaway, Breakaway.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "breakaway_dev",
-  stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+# When DATABASE_URL is set, dev points at that database instead of the local
+# docker Postgres — which is how you migrate or seed the Neon production
+# database from a local BEAM, without waiting on a deploy.
+# IMPORTANT: use Neon's *direct* endpoint, not the `-pooler` (PgBouncer) one.
+# CAUTION: this makes *every* dev mix command operate on that database, the
+# destructive ones included, so pass it inline rather than exporting it — and
+# note .env is read further down this file, too late to be seen here, which is
+# deliberate for the same reason.
+# Blank counts as unset: an exported-but-empty var arrives as "", which is
+# truthy in Elixir and would otherwise select the remote branch with `url: ""`.
+database_url =
+  case System.get_env("DATABASE_URL") do
+    url when is_binary(url) and byte_size(url) > 0 -> url
+    _ -> nil
+  end
+
+repo_db =
+  if database_url,
+    do: [url: database_url, ssl: true],
+    else: [
+      username: "postgres",
+      password: "postgres",
+      hostname: "localhost",
+      database: "breakaway_dev"
+    ]
+
+config :breakaway,
+       Breakaway.Repo,
+       [
+         stacktrace: true,
+         # Verbose for the local docker database, muted for a remote one so a
+         # failed connection cannot leak its credentials into dev logs.
+         show_sensitive_data_on_connection_error: is_nil(database_url),
+         pool_size: 10
+       ] ++ repo_db
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

@@ -69,7 +69,10 @@ if config_env() == :prod do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :breakaway, Breakaway.Repo,
-    # ssl: true,
+    # Neon requires TLS. `ssl: true` uses Postgrex's secure defaults: the system
+    # CA bundle (ca-certificates ships in the runner image), verify_peer with
+    # hostname checking, and SNI set from the host — which Neon needs to route.
+    ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     # For machines with several cores, consider starting multiple pools of `pool_size`

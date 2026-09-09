@@ -1,0 +1,59 @@
+# Fly.io deployment. `fly launch` would generate most of this; the parts worth
+# knowing about are called out below.
+#
+# The app name is global to Fly. PHX_HOST is the public hostname the app builds
+# its URLs from, and is independent of it — a custom domain, not <app>.fly.dev.
+
+app = 'breakaway'
+primary_region = 'syd'
+kill_signal = 'SIGTERM'
+
+[build]
+
+# Both are idempotent, and this machine is torn down before the new version goes
+# live. The seed is here because a fresh database has no floor to walk on; it
+# refreshes the map and furniture and leaves the Discord bindings alone.
+[deploy]
+  release_command = "/bin/sh -c '/app/bin/migrate && /app/bin/seed'"
+
+[env]
+  PHX_HOST = 'breakaway.town'
+  PORT = '8080'
+  POOL_SIZE = '10'
+  # ECTO_IPV6 and DNS_CLUSTER_QUERY are exported by rel/env.sh.eex, which also
+  # names the node for distributed Erlang. Setting them here as well would just
+  # be two places to keep in step.
+  # Must also be registered, character for character, on the Discord app's
+  # OAuth2 page — including the Save Changes press.
+  DISCORD_REDIRECT_URI = 'https://breakaway.town/auth/user/discord/callback'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  # An office nobody is standing in is worth suspending, but never scale to
+  # zero: cold-starting on the first request costs the visitor the wait, and
+  # avatar positions live in a GenServer until they are written back.
+  auto_stop_machines = 'suspend'
+  min_machines_running = 1
+  processes = ['app']
+
+  # LiveView holds a websocket per visitor, so count connections rather than
+  # requests.
+  [http_service.concurrency]
+    type = 'connections'
+    soft_limit = 400
+    hard_limit = 500
+
+  # /health touches the database and answers 503 when it cannot be reached, so
+  # a machine that can only serve errors is taken out of rotation.
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1gb'

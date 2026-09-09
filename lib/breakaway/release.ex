@@ -13,6 +13,20 @@ defmodule Breakaway.Release do
     end
   end
 
+  @doc """
+  Creates or refreshes the default office.
+
+  Idempotent by design — it updates the map and furniture and leaves the Discord
+  channel bindings on the zones alone — so it is safe in a release command that
+  runs on every deploy. Without it a fresh database has no floor to walk on and
+  `/office` has nothing to render.
+  """
+  def seed do
+    load_app()
+    {:ok, _} = Application.ensure_all_started(@app)
+    Breakaway.Worlds.Seeder.seed_default_office!()
+  end
+
   def rollback(repo, version) do
     load_app()
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
