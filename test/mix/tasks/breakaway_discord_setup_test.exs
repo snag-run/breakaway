@@ -169,37 +169,46 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
     assert out =~ "DISCORD_LOBBY_CHANNEL_ID=chan-lobby"
   end
 
-  test "names the lobby channel after the office's own lobby zone", %{space: space} do
-    Worlds.create_zone!(
-      %{
-        space_id: space.id,
-        name: "The Commons",
-        slug: "commons",
-        kind: :lobby,
-        x: 6,
-        y: 6,
-        width: 2,
-        height: 2,
-        accent: "#7c8896"
-      },
-      authorize?: false
-    )
-
+  test "reuses a channel the server already has instead of inventing one", %{space: space} do
     Req.Test.stub(Breakaway.Discord.Client, fn conn ->
       case conn.method do
         "GET" ->
-          Req.Test.json(conn, [])
+          Req.Test.json(conn, [
+            %{"id" => "chan-general", "name" => "General", "type" => 2, "position" => 0}
+          ])
 
         "POST" ->
           {:ok, body, conn} = Plug.Conn.read_body(conn)
           %{"name" => name} = Jason.decode!(body)
-          Req.Test.json(conn, %{"id" => "chan-#{name}", "name" => name, "type" => 2})
+          refute name in ["lobby", "general"], "should not have created a lobby"
+          Req.Test.json(conn, %{"id" => "chan-cell", "name" => name, "type" => 2})
       end
     end)
 
     Setup.run(["--space", space.slug])
 
-    assert output() =~ "Lobby: created #commons"
+    out = output()
+    assert out =~ "Lobby: reused #General"
+    assert out =~ "DISCORD_LOBBY_CHANNEL_ID=chan-general"
+  end
+
+  test "prefers #lobby over #general when the server has both", %{space: space} do
+    Req.Test.stub(Breakaway.Discord.Client, fn conn ->
+      case conn.method do
+        "GET" ->
+          Req.Test.json(conn, [
+            %{"id" => "chan-general", "name" => "general", "type" => 2, "position" => 0},
+            %{"id" => "chan-lobby", "name" => "lobby", "type" => 2, "position" => 1}
+          ])
+
+        "POST" ->
+          Req.Test.json(conn, %{"id" => "chan-cell", "name" => "cell", "type" => 2})
+      end
+    end)
+
+    Setup.run(["--space", space.slug])
+
+    assert output() =~ "DISCORD_LOBBY_CHANNEL_ID=chan-lobby"
   end
 
   test "the lobby channel is never bound to a zone", %{space: space} do
@@ -221,18 +230,20 @@ defmodule Mix.Tasks.Breakaway.Discord.SetupTest do
     Req.Test.stub(Breakaway.Discord.Client, fn conn ->
       case conn.method do
         "GET" ->
-          Req.Test.json(conn, [])
+          Req.Test.json(conn, [
+            %{"id" => "chan-general", "name" => "General", "type" => 2, "position" => 0}
+          ])
 
         "POST" ->
-          {:ok, body, conn} = Plug.Conn.read_body(conn)
-          %{"name" => name} = Jason.decode!(body)
-          Req.Test.json(conn, %{"id" => "chan-#{name}", "name" => name, "type" => 2})
+          Req.Test.json(conn, %{"id" => "chan-cell", "name" => "cell", "type" => 2})
       end
     end)
 
     Setup.run(["--space", space.slug])
 
     # Binding it would drag anyone crossing the commons into a call.
+    bound = Worlds.list_zones!(query: [filter: [space_id: space.id]], authorize?: false)
+    refute Enum.any?(bound, &(&1.discord_channel_id == "chan-general"))
     assert zone(space, "commons").discord_channel_id == nil
   end
 

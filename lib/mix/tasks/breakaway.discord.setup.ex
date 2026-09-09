@@ -14,9 +14,11 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
       mix breakaway.discord.setup --category Breakaway   # group them in a category
       mix breakaway.discord.setup --no-lobby         # skip the lobby channel
 
-  It also makes the lobby channel people are returned to when they walk out of a
-  meeting room, and prints the `DISCORD_LOBBY_CHANNEL_ID` line to paste into
-  `.env`. Pass `--no-lobby` to skip that, or set the variable yourself.
+  It also sorts out the lobby channel people are returned to when they walk out
+  of a meeting room, and prints the `DISCORD_LOBBY_CHANNEL_ID` line to paste
+  into `.env`. It reuses `#lobby` or `#general` if the server has one and only
+  creates `#lobby` when neither exists. Pass `--no-lobby` to skip that, or set
+  the variable yourself.
 
   Needs `DISCORD_BOT_TOKEN` and a guild the bot is in, holding **Manage
   Channels** (to create) and **Move Members** (to move people once it's live).
@@ -57,7 +59,7 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
           Enum.each(rooms, &link(&1, guild_id, channels, parent_id, opts))
       end
 
-      lobby(zones, guild_id, channels, parent_id, opts)
+      lobby(guild_id, channels, parent_id, opts)
 
       Mix.shell().info("\nDone. Walk into a room to try it.")
     else
@@ -118,10 +120,15 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
 
   # --- the lobby ----------------------------------------------------------------
 
+  # Names a server plausibly already uses for the channel people sit in between
+  # meetings, most specific first. Reusing one beats adding a near-duplicate to
+  # a server that already has somewhere obvious to go.
+  @lobby_names ["lobby", "general"]
+
   # Where people are put back when they leave a meeting room. Deliberately not
-  # bound to the lobby zone: `auto_move` on the commons would drag anyone
-  # crossing the floor into a call. All the app wants is the id, in `.env`.
-  defp lobby(zones, guild_id, channels, parent_id, opts) do
+  # bound to any zone: `auto_move` on the commons would drag anyone crossing the
+  # floor into a call. All the app wants is the id, in `.env`.
+  defp lobby(guild_id, channels, parent_id, opts) do
     cond do
       not Keyword.get(opts, :lobby, true) ->
         :ok
@@ -130,10 +137,8 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
         Mix.shell().info("\nLobby: already set by DISCORD_LOBBY_CHANNEL_ID.")
 
       true ->
-        name = lobby_name(zones)
-
-        case find_channel(channels, name) do
-          nil -> create_lobby(guild_id, name, parent_id, opts)
+        case Enum.find_value(@lobby_names, &find_channel(channels, &1)) do
+          nil -> create_lobby(guild_id, hd(@lobby_names), parent_id, opts)
           channel -> announce_lobby(channel, "reused ##{channel.name}")
         end
     end
@@ -164,13 +169,6 @@ defmodule Mix.Tasks.Breakaway.Discord.Setup do
       Put this in .env, so leaving a room returns people to it:
       DISCORD_LOBBY_CHANNEL_ID=#{channel.id}\
     """)
-  end
-
-  defp lobby_name(zones) do
-    case Enum.find(zones, &(&1.kind == :lobby)) do
-      nil -> "lobby"
-      zone -> String.downcase(zone.slug)
-    end
   end
 
   defp configured_lobby_id, do: present(discord_config()[:lobby_channel_id])

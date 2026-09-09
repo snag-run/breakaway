@@ -103,11 +103,13 @@ the server can move them between voice channels.
    include the lounge, kitchen and focus pods — off by default, because binding
    the lounge means walking past the couch drags you into a call.
 
-   It also makes the lobby channel and prints the `DISCORD_LOBBY_CHANNEL_ID`
+   It also sorts out the lobby channel and prints the `DISCORD_LOBBY_CHANNEL_ID`
    line to paste into `.env` — that's what returns people to a lobby when they
-   walk out of a room. Pass `--no-lobby` to skip it, or set the variable
-   yourself. The channel is deliberately not bound to the commons: `auto_move`
-   there would drag anyone crossing the floor into a call.
+   walk out of a room. It reuses `#lobby` or `#general` if you already have one,
+   and only creates `#lobby` when neither exists. Pass `--no-lobby` to skip it,
+   or set the variable yourself. The channel is deliberately not bound to any
+   zone: `auto_move` on the commons would drag anyone crossing the floor into a
+   call.
 
    New channels land at the server root. Pass `--category Breakaway` to group
    them under a category of that name instead, reusing one that already exists.
