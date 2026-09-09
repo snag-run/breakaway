@@ -246,19 +246,90 @@ or build the generated `Dockerfile`. Then set, at minimum:
 | `DISCORD_*` | see `.env.example` |
 | `DNS_CLUSTER_QUERY` | optional, to find sibling nodes |
 
-Run migrations with `bin/migrate`, then `bin/server`. `GET /health` checks the
-database and answers 503 if it cannot be reached, so a load balancer never
-routes traffic to a node that can only serve errors.
+Run `bin/migrate`, then `bin/seed`, then `bin/server`. The seed is not optional
+on a fresh database — without it there is no floor to walk on and `/office` has
+nothing to render. Both are idempotent: re-running updates the map and furniture
+and leaves the Discord channel bindings on the zones intact, so they belong in a
+deploy step rather than a one-off runbook.
 
-Two things to get right:
+`GET /health` checks the database and answers 503 if it cannot be reached, so a
+load balancer never routes traffic to a node that can only serve errors.
 
-- **`DISCORD_REDIRECT_URI` must exactly match** a redirect registered on the
-  Discord application — `https://your-host/auth/user/discord/callback` — and
-  the portal's **Save Changes** must actually have been pressed. A mismatch
-  fails at the Discord callback, not in your logs.
-- The dev sign-in is compiled out: `/dev/sign-in-as/...` returns 404 when
-  `:dev_routes` is off, and the action behind it refuses independently. Both
-  hold in a release built with `MIX_ENV=prod`.
+### On Fly.io
+
+`fly.toml` is committed and holds the shape of the deploy: the release command,
+the health check, and the VM size. `rel/env.sh.eex` handles the rest — it names
+the node for distributed Erlang and exports `DNS_CLUSTER_QUERY` and
+`ECTO_IPV6`, so two machines cluster instead of each running their own copy of
+the office. Prefer `fly deploy` over `fly launch`; launch rewrites both.
+
+The database is Neon rather than a Fly cluster. `config/runtime.exs` sets
+`ssl: true` because Neon refuses plaintext connections outright — the failure is
+`connection is insecure (try using \`sslmode=require\`)` during the release
+command, before a single migration runs.
+
+```bash
+fly apps create breakaway
+
+# DATABASE_URL from Neon. Use the direct endpoint, not the -pooler one.
+# SECRET_KEY_BASE and TOKEN_SIGNING_SECRET are generated straight into Fly, so
+# they are never printed or stored here.
+fly secrets set \
+  DATABASE_URL="postgres://..." \
+  SECRET_KEY_BASE="$(mix phx.gen.secret)" \
+  TOKEN_SIGNING_SECRET="$(mix phx.gen.secret)"
+
+# Reuse the Discord credentials in .env without opening the file. REDIRECT_URI
+# is excluded on purpose: the local one points at localhost, and a secret would
+# override the correct value in fly.toml.
+grep -E '^DISCORD_' .env | grep -v '^DISCORD_REDIRECT_URI=' | fly secrets import
+
+fly deploy
+```
+
+`TOKEN_SIGNING_SECRET` is the one `fly launch` will not set for you — it knows
+Phoenix's `SECRET_KEY_BASE` but nothing about AshAuthentication's, and
+`runtime.exs` raises on it, so the release command fails identically to a
+missing database.
+
+#### A custom domain
+
+```bash
+fly ips list                      # note the v4 and v6 addresses
+fly certs add breakaway.town
+fly certs show breakaway.town     # watch it go Ready
+```
+
+Point the apex at both addresses at your registrar — an `A` record at the IPv4
+and an `AAAA` at the IPv6. A shared IPv4 is fine here; every request arrives over
+HTTPS with SNI, which is what Fly needs to tell apps apart on a shared address.
+The certificate cannot be issued until those records resolve, so add them first
+and expect `fly certs show` to sit pending for a few minutes.
+
+For `www` as well, a `CNAME` to `breakaway.fly.dev` plus its own
+`fly certs add www.breakaway.town`.
+
+Then the hostname has to agree in three places, or sign-in breaks at the Discord
+callback rather than in your logs:
+
+- `PHX_HOST` and `DISCORD_REDIRECT_URI` in `fly.toml`.
+- No `DISCORD_REDIRECT_URI` secret shadowing it — `fly secrets unset
+  DISCORD_REDIRECT_URI` if `.env` put one there, since secrets beat `[env]`.
+- The redirect registered on the Discord application's OAuth2 page, character
+  for character, with **Save Changes** pressed.
+
+#### Seeding without a deploy
+
+`config/dev.exs` points at `DATABASE_URL` when one is set, so the production
+database can be migrated and seeded from a local BEAM:
+
+```bash
+DATABASE_URL="postgres://..." mix ecto.migrate
+DATABASE_URL="postgres://..." mix breakaway.seed
+```
+
+Pass it inline rather than exporting it — every `mix` command would follow it,
+including the destructive ones.
 
 ## Tests
 
