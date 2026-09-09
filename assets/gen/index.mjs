@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildTileset, TILE, COLS as TILE_COLS, TILE_NAMES, SOLID_TILES } from "./tiles.mjs";
 import { buildFurniture, CELL, COLS as PROP_COLS, PROP_NAMES, PROP_META } from "./furniture.mjs";
-import { buildAvatars, FW, FH, DIRS, FRAMES, PALETTES } from "./avatars.mjs";
+import { buildAvatars, FW, FH, DIRS, FRAMES, COLUMNS, SIT_FRAME, PALETTES } from "./avatars.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(here, "../../priv/static/images");
@@ -44,6 +44,8 @@ const atlas = {
     frameWidth: FW,
     frameHeight: FH,
     frames: FRAMES,
+    columns: COLUMNS,
+    sitFrame: SIT_FRAME,
     directions: DIRS,
     palettes: PALETTES.map((p) => p.name),
   },

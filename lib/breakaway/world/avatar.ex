@@ -20,6 +20,7 @@ defmodule Breakaway.World.Avatar do
     palette: 0,
     input: {0, 0},
     moving?: false,
+    seated?: false,
     # distance walked, in tiles — the renderer derives the walk frame from it so
     # the animation stays in step with actual movement rather than wall time
     distance: 0.0,
@@ -41,7 +42,8 @@ defmodule Breakaway.World.Avatar do
       f: a.distance |> Kernel.*(2.4) |> trunc() |> rem(4),
       z: a.zone,
       s: a.activity || a.status,
-      a: a.activity
+      a: a.activity,
+      sit: a.seated?
     }
   end
 end

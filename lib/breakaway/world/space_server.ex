@@ -128,7 +128,7 @@ defmodule Breakaway.World.SpaceServer do
         {:reply, {:error, :not_here}, state}
 
       %{activity: activity} = avatar when not is_nil(activity) ->
-        state = put_in(state.avatars[user_id], %{avatar | activity: nil})
+        state = put_in(state.avatars[user_id], stand_up(avatar, state))
         {:reply, {:ok, nil}, %{state | dirty?: true}}
 
       avatar ->
@@ -137,9 +137,9 @@ defmodule Breakaway.World.SpaceServer do
             {:reply, {:error, :nothing_nearby}, state}
 
           prop ->
-            activity = Interactions.activity(prop.kind)
-            state = put_in(state.avatars[user_id], %{avatar | activity: activity})
-            {:reply, {:ok, activity}, %{state | dirty?: true}}
+            next = start_activity(avatar, prop)
+            state = put_in(state.avatars[user_id], next)
+            {:reply, {:ok, next.activity}, %{state | dirty?: true}}
         end
     end
   end
@@ -207,6 +207,11 @@ defmodule Breakaway.World.SpaceServer do
 
   defp move(%Avatar{input: {0, 0}} = avatar, _dt, _state),
     do: %{avatar | moving?: false}
+
+  # Any movement gets you out of the chair first — otherwise the avatar would be
+  # standing inside the seat's own collision box and unable to go anywhere.
+  defp move(%Avatar{seated?: true} = avatar, dt, state),
+    do: avatar |> stand_up(state) |> move(dt, state)
 
   defp move(%Avatar{input: {dx, dy}} = avatar, dt, state) do
     # Normalise so diagonals aren't faster than the cardinals.
@@ -293,6 +298,36 @@ defmodule Breakaway.World.SpaceServer do
       nil -> nil
     end
   end
+
+  # Sitting moves the avatar onto the furniture; everything else just labels
+  # what they're doing where they stand.
+  defp start_activity(avatar, prop) do
+    activity = Interactions.activity(prop.kind)
+
+    if Interactions.seat?(prop.kind) do
+      %{w: w, h: h} = Atlas.prop_meta(prop.kind)
+
+      %{
+        avatar
+        | activity: activity,
+          seated?: true,
+          dir: Interactions.seated_facing(),
+          x: prop.x + w / 2,
+          y: prop.y + h / 2,
+          input: {0, 0},
+          moving?: false
+      }
+    else
+      %{avatar | activity: activity}
+    end
+  end
+
+  # Seats are solid, so standing up has to put the avatar back on a free tile.
+  defp stand_up(%Avatar{seated?: true} = avatar, state) do
+    nudge_to_free(%{avatar | activity: nil, seated?: false}, state)
+  end
+
+  defp stand_up(avatar, _state), do: %{avatar | activity: nil}
 
   defp maybe_end_activity(state, avatar) do
     if nearest_interactable(state, avatar), do: avatar, else: %{avatar | activity: nil}

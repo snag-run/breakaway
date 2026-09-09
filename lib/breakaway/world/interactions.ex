@@ -7,6 +7,8 @@ defmodule Breakaway.World.Interactions do
   """
 
   # kind => {prompt shown to the person walking past, activity it puts them in}
+  # Seats additionally move the avatar onto the furniture and switch it to the
+  # seated pose, so they are listed in @seats below.
   @table %{
     desk: {"Work at this desk", "Heads down"},
     desk_double: {"Work at this desk", "Heads down"},
@@ -28,6 +30,20 @@ defmodule Breakaway.World.Interactions do
     plant_small: {"Water the plant", "Watering the plants"},
     plant_tall: {"Water the plant", "Watering the plants"}
   }
+
+  # Furniture you sit on rather than just stand next to.
+  @seats [:chair, :office_chair, :couch, :beanbag]
+
+  @doc """
+  Whether using this puts the avatar *on* the furniture.
+
+  Seats snap the avatar to the middle of the prop and face it toward the
+  camera, matching how the seat sprites are drawn.
+  """
+  def seat?(kind), do: kind in @seats
+
+  @doc "Which way you face once seated. Every seat sprite has its back to the top."
+  def seated_facing, do: :down
 
   @doc "How close (in tiles, centre to centre) you must be to use something."
   def reach, do: 1.7

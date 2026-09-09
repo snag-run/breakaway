@@ -123,11 +123,12 @@ export const Office = {
         existing.moving = a.m; existing.frame = a.f;
         existing.name = a.n; existing.status = a.s; existing.zone = a.z;
         existing.activity = a.a;
+        existing.seated = a.sit;
       } else {
         this.avatars.set(a.id, {
           x: a.x, y: a.y, tx: a.x, ty: a.y,
           dir: a.d, palette: a.p, moving: a.m, frame: a.f,
-          name: a.n, status: a.s, zone: a.z, activity: a.a,
+          name: a.n, status: a.s, zone: a.z, activity: a.a, seated: a.sit,
         });
         // Don't pan the camera across the map on first sight of ourselves.
         if (a.id === this.selfId) this.camera = { x: a.x, y: a.y };
@@ -268,7 +269,10 @@ export const Office = {
       drawables.push({ sort: (p.y + meta.h) * TILE, kind: "prop", p, meta });
     }
     for (const [id, a] of this.avatars) {
-      drawables.push({ sort: a.y * TILE, kind: "avatar", id, a });
+      // Props sort by their bottom edge, so bias a seated avatar a tile lower —
+      // otherwise the chair would be painted over the person sitting in it.
+      const sortY = a.seated ? a.y + 1 : a.y;
+      drawables.push({ sort: sortY * TILE, kind: "avatar", id, a });
     }
     drawables.sort((m, n) => m.sort - n.sort);
 
@@ -313,16 +317,16 @@ export const Office = {
   },
 
   drawAvatar(ctx, id, a) {
-    const { frameWidth: fw, frameHeight: fh, directions } = this.atlas.avatars;
+    const { frameWidth: fw, frameHeight: fh, directions, sitFrame } = this.atlas.avatars;
     const dirIndex = Math.max(0, directions.indexOf(a.dir));
     const row = a.palette * directions.length + dirIndex;
-    const frame = a.moving ? a.frame : 0;
+    const frame = a.seated ? sitFrame : a.moving ? a.frame : 0;
 
     // Feet sit on the avatar's position; the sprite is taller than a tile.
     const dx = Math.round(a.x * TILE - fw / 2);
     const dy = Math.round(a.y * TILE - fh + TILE / 2);
 
-    if (id === this.selfId) {
+    if (id === this.selfId && !a.seated) {
       ctx.save();
       ctx.globalAlpha = 0.35;
       ctx.strokeStyle = "#ffd479";
@@ -415,7 +419,7 @@ export const Office = {
     if (!me) return;
 
     const near = this.nearestInteractable();
-    const label = me.activity ? "Stop" : near && near.prompt;
+    const label = me.seated ? "Stand up" : me.activity ? "Stop" : near && near.prompt;
     if (!label) return;
 
     const ctx = this.ctx;
