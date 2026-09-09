@@ -45,7 +45,12 @@ defmodule Breakaway.World do
     end
   end
 
-  @doc "Space ids with a simulation running on this node."
+  @doc """
+  Space ids whose simulation is running *on this node*.
+
+  Deliberately node-local: each floor runs in one place, so having every node
+  poll only its own floors means no duplicated Discord traffic.
+  """
   def running_spaces do
     Registry.select(Breakaway.World.Registry, [{{:"$1", :_, :_}, [], [:"$1"]}])
   end
@@ -61,12 +66,19 @@ defmodule Breakaway.World do
 
   def subscribe(space_id), do: Phoenix.PubSub.subscribe(Breakaway.PubSub, topic(space_id))
 
+  @doc """
+  Find the simulation for a floor anywhere in the cluster, starting it here if
+  nobody is running it yet.
+
+  Two nodes can race; `:global` names make the loser's start fail with
+  `{:already_started, pid}`, and it simply uses the winner's process.
+  """
   def ensure_started(space_id) do
-    case Registry.lookup(Breakaway.World.Registry, space_id) do
-      [{pid, _}] ->
+    case SpaceServer.whereis(space_id) do
+      pid when is_pid(pid) ->
         {:ok, pid}
 
-      [] ->
+      nil ->
         case DynamicSupervisor.start_child(
                Breakaway.World.SpaceSupervisor,
                {SpaceServer, space_id: space_id}

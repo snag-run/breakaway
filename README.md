@@ -124,6 +124,30 @@ OfficeLive ──────────► SpaceServer (one per floor, 20Hz)
   the account on Discord's `id` claim rather than on email, so a matching email
   address can never take over somebody else's account.
 
+## Running more than one node
+
+A floor's simulation is registered through `:global`, so exactly one runs
+cluster-wide no matter how many nodes are up. Nodes race to start it; the loser
+gets `{:already_started, pid}` and uses the winner. Calls route across nodes,
+and PubSub is already distributed, so it does not matter which node a browser
+happens to be connected to.
+
+Each node also registers its own floors in a local `Registry`, purely so the
+voice poller can iterate "the floors running here" — that is what stops two
+nodes both polling Discord for the same people.
+
+Check it yourself against two real nodes:
+
+```bash
+elixir --sname breakaway_main --cookie verify -S mix run scripts/verify_cluster.exs
+```
+
+The caveat: a floor lives in memory on one node. If that node dies, the floor is
+gone and the next person to walk in starts a fresh one — everyone's position
+resets to where it was last written, which happens when people leave cleanly
+rather than continuously. That is a fine trade for an office and a bad one for a
+game with stakes.
+
 ## The 2D assets
 
 The spritesheets are generated, not drawn by hand — `assets/gen` contains a

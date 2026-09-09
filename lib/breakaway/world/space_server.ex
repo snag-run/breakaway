@@ -40,7 +40,25 @@ defmodule Breakaway.World.SpaceServer do
     GenServer.start_link(__MODULE__, opts, name: via(space_id))
   end
 
-  def via(space_id), do: {:via, Registry, {Breakaway.World.Registry, space_id}}
+  @doc """
+  Cluster-wide name for a floor's simulation.
+
+  Registered through `:global` rather than a local `Registry`, so a floor has
+  exactly one simulation across the whole cluster. Two nodes racing to start the
+  same floor is fine: the loser gets `{:error, {:already_started, pid}}` and uses
+  the winner's process. Calls and casts route across nodes transparently.
+  """
+  def via(space_id), do: {:global, global_name(space_id)}
+
+  def global_name(space_id), do: {:breakaway_space, space_id}
+
+  @doc "Whereabouts of a floor's simulation, anywhere in the cluster."
+  def whereis(space_id) do
+    case :global.whereis_name(global_name(space_id)) do
+      :undefined -> nil
+      pid -> pid
+    end
+  end
 
   def topic(space_id), do: "space:#{space_id}"
 
@@ -64,6 +82,11 @@ defmodule Breakaway.World.SpaceServer do
   @impl true
   def init(opts) do
     space_id = Keyword.fetch!(opts, :space_id)
+
+    # A second, node-local registration. `:global` gives cluster-wide
+    # uniqueness but no cheap way to list "the floors running here", which is
+    # what the voice poller iterates.
+    {:ok, _} = Registry.register(Breakaway.World.Registry, space_id, nil)
 
     with {:ok, space} <- Worlds.get_space(space_id, authorize?: false),
          {:ok, zones} <-
