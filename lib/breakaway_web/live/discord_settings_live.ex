@@ -98,8 +98,11 @@ defmodule BreakawayWeb.DiscordSettingsLive do
     zone = Enum.find(socket.assigns.zones, &(&1.id == zone_id))
 
     case Worlds.unbind_discord_channel(zone, %{}, actor: socket.assigns.current_user) do
-      {:ok, _} -> {:noreply, socket |> reload_zones() |> put_flash(:info, "#{zone.name} unlinked.")}
-      {:error, _} -> {:noreply, put_flash(socket, :error, "Could not unlink that room.")}
+      {:ok, _} ->
+        {:noreply, socket |> reload_zones() |> put_flash(:info, "#{zone.name} unlinked.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not unlink that room.")}
     end
   end
 

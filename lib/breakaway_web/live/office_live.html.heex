@@ -49,7 +49,10 @@
             id="chat-log"
             class="mb-2 flex max-h-52 flex-col-reverse gap-1 overflow-y-auto pr-1 text-sm"
           >
-            <div :for={message <- @messages} class="w-fit rounded-lg bg-black/50 px-2.5 py-1 backdrop-blur">
+            <div
+              :for={message <- @messages}
+              class="w-fit rounded-lg bg-black/50 px-2.5 py-1 backdrop-blur"
+            >
               <span class="font-semibold text-amber-300">{message.name}</span>
               <span class="ml-1 text-zinc-100">{message.text}</span>
             </div>
@@ -69,14 +72,16 @@
               placeholder="Say something to the room…"
               class="w-full bg-transparent text-sm outline-none placeholder:text-zinc-500"
             />
-            <button type="submit" class="text-xs font-semibold text-amber-300 hover:text-amber-200">
+            <button
+              type="submit"
+              class="text-xs font-semibold text-amber-300 hover:text-amber-200"
+            >
               Send
             </button>
           </form>
-          <p class="mt-1.5 pl-1 text-[11px] text-zinc-500">
-            WASD or arrow keys to walk · walk into a meeting room to join its call
-          </p>
         </div>
+
+        <.controls_overlay />
       </div>
     </div>
   </div>

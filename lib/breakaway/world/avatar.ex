@@ -12,6 +12,7 @@ defmodule Breakaway.World.Avatar do
     :name,
     :discord_id,
     :status,
+    :activity,
     :pid,
     x: 0.0,
     y: 0.0,
@@ -39,7 +40,8 @@ defmodule Breakaway.World.Avatar do
       m: a.moving?,
       f: a.distance |> Kernel.*(2.4) |> trunc() |> rem(4),
       z: a.zone,
-      s: a.status
+      s: a.activity || a.status,
+      a: a.activity
     }
   end
 end

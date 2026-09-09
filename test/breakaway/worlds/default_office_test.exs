@@ -63,13 +63,17 @@ defmodule Breakaway.Worlds.DefaultOfficeTest do
 
   test "every meeting room can actually be walked into", %{plan: plan, tile_at: tile_at} do
     walkable = fn {x, y} ->
-      x >= 0 and y >= 0 and x < plan.width and y < plan.height and not Atlas.solid?(tile_at.(x, y))
+      x >= 0 and y >= 0 and x < plan.width and y < plan.height and
+        not Atlas.solid?(tile_at.(x, y))
     end
 
     reachable = flood_fill({plan.spawn_x, plan.spawn_y}, walkable)
 
     for zone <- Enum.filter(plan.zones, &(&1.kind in [:meeting, :social, :focus])) do
-      tiles = for x <- zone.x..(zone.x + zone.width - 1), y <- zone.y..(zone.y + zone.height - 1), do: {x, y}
+      tiles =
+        for x <- zone.x..(zone.x + zone.width - 1),
+            y <- zone.y..(zone.y + zone.height - 1),
+            do: {x, y}
 
       assert Enum.any?(tiles, &MapSet.member?(reachable, &1)),
              "#{zone.slug} is walled off from spawn"

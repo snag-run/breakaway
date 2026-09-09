@@ -16,12 +16,15 @@
       </.link>
     </header>
 
-    <div :if={!@bot_configured?} class="mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+    <div
+      :if={!@bot_configured?}
+      class="mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4"
+    >
       <p class="text-sm font-medium text-amber-200">No bot token configured</p>
       <p class="mt-1 text-sm text-amber-100/70">
         Set <code class="rounded bg-black/30 px-1.5 py-0.5">DISCORD_BOT_TOKEN</code>
-        and restart. The bot must be in your server with the
-        <strong>Move Members</strong> permission.
+        and restart. The bot must be in your server with the <strong>Move Members</strong>
+        permission.
       </p>
     </div>
 
@@ -45,7 +48,10 @@
       </form>
 
       <p :if={@channel_error} class="mt-2 text-sm text-rose-300">{@channel_error}</p>
-      <p :if={!@channel_error and @channels == [] and @bot_configured?} class="mt-2 text-sm text-zinc-500">
+      <p
+        :if={!@channel_error and @channels == [] and @bot_configured?}
+        class="mt-2 text-sm text-zinc-500"
+      >
         No voice channels found in this server.
       </p>
     </section>
@@ -117,7 +123,10 @@
         </div>
       </div>
 
-      <p :if={@zones == []} class="rounded-xl border border-white/5 bg-[#1a1d24] p-6 text-center text-sm text-zinc-500">
+      <p
+        :if={@zones == []}
+        class="rounded-xl border border-white/5 bg-[#1a1d24] p-6 text-center text-sm text-zinc-500"
+      >
         No rooms yet — run <code class="rounded bg-black/30 px-1.5 py-0.5">mix breakaway.seed</code>.
       </p>
     </section>

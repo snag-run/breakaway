@@ -41,7 +41,6 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
-
   config :breakaway, :discord,
     client_id: System.get_env("DISCORD_CLIENT_ID"),
     client_secret: System.get_env("DISCORD_CLIENT_SECRET"),
@@ -49,6 +48,7 @@ if config_env() == :prod do
     bot_token: System.get_env("DISCORD_BOT_TOKEN"),
     guild_id: System.get_env("DISCORD_GUILD_ID"),
     lobby_channel_id: System.get_env("DISCORD_LOBBY_CHANNEL_ID")
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

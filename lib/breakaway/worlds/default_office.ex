@@ -14,12 +14,39 @@ defmodule Breakaway.Worlds.DefaultOffice do
   # Three glass-walled meeting rooms across the top — these are the rooms that
   # get bound to Discord voice channels.
   @meeting_rooms [
-    %{slug: "aurora", name: "Aurora", x1: 1, y1: 1, x2: 13, y2: 10, floor: :carpet_teal,
-      accent: "#3a7a7c", door: 7},
-    %{slug: "basalt", name: "Basalt", x1: 15, y1: 1, x2: 28, y2: 10, floor: :carpet_plum,
-      accent: "#684774", door: 21},
-    %{slug: "summit", name: "Summit", x1: 30, y1: 1, x2: 42, y2: 10, floor: :carpet_teal,
-      accent: "#3a7a7c", door: 36}
+    %{
+      slug: "aurora",
+      name: "Aurora",
+      x1: 1,
+      y1: 1,
+      x2: 13,
+      y2: 10,
+      floor: :carpet_teal,
+      accent: "#3a7a7c",
+      door: 7
+    },
+    %{
+      slug: "basalt",
+      name: "Basalt",
+      x1: 15,
+      y1: 1,
+      x2: 28,
+      y2: 10,
+      floor: :carpet_plum,
+      accent: "#684774",
+      door: 21
+    },
+    %{
+      slug: "summit",
+      name: "Summit",
+      x1: 30,
+      y1: 1,
+      x2: 42,
+      y2: 10,
+      floor: :carpet_teal,
+      accent: "#3a7a7c",
+      door: 36
+    }
   ]
 
   @lounge %{slug: "lounge", name: "The Lounge", x1: 1, y1: 21, x2: 15, y2: 30}
@@ -156,17 +183,50 @@ defmodule Breakaway.Worlds.DefaultOffice do
 
     meeting ++
       [
-        %{slug: @lounge.slug, name: @lounge.name, kind: :social, x: @lounge.x1 + 1,
-          y: @lounge.y1 + 1, width: @lounge.x2 - @lounge.x1 - 1,
-          height: @lounge.y2 - @lounge.y1 - 1, capacity: 12, accent: "#d6765c"},
-        %{slug: @kitchen.slug, name: @kitchen.name, kind: :social, x: @kitchen.x1 + 1,
-          y: @kitchen.y1 + 1, width: @kitchen.x2 - @kitchen.x1 - 1,
-          height: @kitchen.y2 - @kitchen.y1 - 1, capacity: 8, accent: "#c8a15a"},
-        %{slug: @focus.slug, name: @focus.name, kind: :focus, x: @focus.x1 + 1,
-          y: @focus.y1 + 1, width: @focus.x2 - @focus.x1 - 1,
-          height: @focus.y2 - @focus.y1 - 1, capacity: 3, accent: "#5c6b8a"},
-        %{slug: "commons", name: "The Commons", kind: :lobby, x: 1, y: 11, width: 42,
-          height: 10, capacity: 40, accent: "#7c8896"}
+        %{
+          slug: @lounge.slug,
+          name: @lounge.name,
+          kind: :social,
+          x: @lounge.x1 + 1,
+          y: @lounge.y1 + 1,
+          width: @lounge.x2 - @lounge.x1 - 1,
+          height: @lounge.y2 - @lounge.y1 - 1,
+          capacity: 12,
+          accent: "#d6765c"
+        },
+        %{
+          slug: @kitchen.slug,
+          name: @kitchen.name,
+          kind: :social,
+          x: @kitchen.x1 + 1,
+          y: @kitchen.y1 + 1,
+          width: @kitchen.x2 - @kitchen.x1 - 1,
+          height: @kitchen.y2 - @kitchen.y1 - 1,
+          capacity: 8,
+          accent: "#c8a15a"
+        },
+        %{
+          slug: @focus.slug,
+          name: @focus.name,
+          kind: :focus,
+          x: @focus.x1 + 1,
+          y: @focus.y1 + 1,
+          width: @focus.x2 - @focus.x1 - 1,
+          height: @focus.y2 - @focus.y1 - 1,
+          capacity: 3,
+          accent: "#5c6b8a"
+        },
+        %{
+          slug: "commons",
+          name: "The Commons",
+          kind: :lobby,
+          x: 1,
+          y: 11,
+          width: 42,
+          height: 10,
+          capacity: 40,
+          accent: "#7c8896"
+        }
       ]
   end
 

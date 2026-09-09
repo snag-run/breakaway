@@ -122,11 +122,12 @@ export const Office = {
         existing.dir = a.d; existing.palette = a.p;
         existing.moving = a.m; existing.frame = a.f;
         existing.name = a.n; existing.status = a.s; existing.zone = a.z;
+        existing.activity = a.a;
       } else {
         this.avatars.set(a.id, {
           x: a.x, y: a.y, tx: a.x, ty: a.y,
           dir: a.d, palette: a.p, moving: a.m, frame: a.f,
-          name: a.n, status: a.s, zone: a.z,
+          name: a.n, status: a.s, zone: a.z, activity: a.a,
         });
         // Don't pan the camera across the map on first sight of ourselves.
         if (a.id === this.selfId) this.camera = { x: a.x, y: a.y };
@@ -139,7 +140,20 @@ export const Office = {
 
   bindInput() {
     this.onKeyDown = (e) => {
-      if (this.typing(e.target)) return;
+      if (this.typing(e.target)) {
+        if (e.code === "Escape") e.target.blur();
+        return;
+      }
+      if (e.code === "KeyE") {
+        e.preventDefault();
+        this.pushEvent("interact", {});
+        return;
+      }
+      if (e.code === "Enter") {
+        const input = document.querySelector("#chat-form input[name=text]");
+        if (input) { e.preventDefault(); input.focus(); }
+        return;
+      }
       if (e.code === "Minus" || e.code === "Equal") {
         e.preventDefault();
         this.zoom = Math.max(0, Math.min(ZOOMS.length - 1, this.zoom + (e.code === "Equal" ? 1 : -1)));
@@ -152,6 +166,7 @@ export const Office = {
       this.pushInput();
     };
     this.onKeyUp = (e) => {
+      if (e.code === "Escape" && this.typing(e.target)) { e.target.blur(); return; }
       if (!KEY_VECTORS[e.code]) return;
       this.held.delete(e.code);
       this.pushInput();
@@ -266,6 +281,7 @@ export const Office = {
 
     // Labels are drawn unscaled so text stays crisp at any zoom.
     this.drawLabels(ox, oy, tile);
+    this.drawInteractHint(ox, oy, tile);
   },
 
   drawZones(ctx) {
@@ -350,6 +366,15 @@ export const Office = {
       ctx.fillStyle = id === this.selfId ? "#1a1c22" : "#f2f2ef";
       ctx.fillText(a.name, x, y - 2);
 
+      if (a.activity) {
+        ctx.font = "600 11px ui-sans-serif, system-ui, sans-serif";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(12,14,18,0.85)";
+        ctx.strokeText(a.activity, x, y - 17);
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.fillText(a.activity, x, y - 17);
+      }
+
       const bubble = this.bubbles.get(id);
       if (bubble) {
         if (bubble.until < now) { this.bubbles.delete(id); continue; }
@@ -362,6 +387,64 @@ export const Office = {
         ctx.fillText(this.ellipsize(ctx, bubble.text, 204), x, y - 26);
       }
     }
+    ctx.restore();
+  },
+
+  // Mirrors the server's reach check so the hint only appears when pressing E
+  // would actually do something.
+  nearestInteractable() {
+    const me = this.avatars.get(this.selfId);
+    if (!me || !this.map?.interactions) return null;
+
+    const reach = this.map.reach ?? 1.7;
+    let best = null;
+    for (const p of this.map.props) {
+      const prompt = this.map.interactions[p.kind];
+      if (!prompt) continue;
+      const meta = this.atlas.props.meta[p.kind];
+      const dx = p.x + meta.w / 2 - me.x;
+      const dy = p.y + meta.h / 2 - me.y;
+      const d = Math.hypot(dx, dy);
+      if (d <= reach && (!best || d < best.d)) best = { d, prompt };
+    }
+    return best;
+  },
+
+  drawInteractHint(ox, oy, tile) {
+    const me = this.avatars.get(this.selfId);
+    if (!me) return;
+
+    const near = this.nearestInteractable();
+    const label = me.activity ? "Stop" : near && near.prompt;
+    if (!label) return;
+
+    const ctx = this.ctx;
+    const x = ox + me.x * tile;
+    const y = oy + me.y * tile + tile * 0.85;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
+
+    const keyW = 18;
+    const textW = ctx.measureText(label).width;
+    const w = keyW + textW + 20;
+
+    ctx.fillStyle = "rgba(20,22,28,0.82)";
+    this.roundRect(ctx, x - w / 2, y - 12, w, 24, 8);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,212,121,0.95)";
+    this.roundRect(ctx, x - w / 2 + 6, y - 8, keyW, 16, 4);
+    ctx.fill();
+
+    ctx.fillStyle = "#1a1c22";
+    ctx.fillText("E", x - w / 2 + 6 + keyW / 2, y + 1);
+
+    ctx.fillStyle = "#f2f2ef";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x - w / 2 + keyW + 12, y + 1);
     ctx.restore();
   },
 
@@ -388,5 +471,52 @@ export const Office = {
 export const ChatInput = {
   mounted() {
     this.handleEvent("office:sent", () => this.el.reset());
+  },
+};
+
+// The controls panel. Kept out of LiveView's hands (phx-update="ignore") so the
+// open/closed state survives re-renders, and remembered per browser so it stops
+// greeting people who already know the keys.
+const CONTROLS_KEY = "breakaway:controls-open";
+
+export const ControlsOverlay = {
+  mounted() {
+    this.panel = this.el.querySelector("[data-role=panel]");
+    this.toggle = this.el.querySelector("[data-role=toggle]");
+
+    let open = true;
+    try {
+      const stored = localStorage.getItem(CONTROLS_KEY);
+      if (stored !== null) open = stored === "1";
+    } catch (_) {
+      // Private mode or blocked storage — just show the panel.
+    }
+    this.setOpen(open);
+
+    this.toggle.addEventListener("click", () => this.setOpen(this.panel.hidden));
+
+    this.onKey = (e) => {
+      const el = e.target;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (e.key === "?" || e.code === "Slash") {
+        e.preventDefault();
+        this.setOpen(this.panel.hidden);
+      }
+    };
+    window.addEventListener("keydown", this.onKey);
+  },
+
+  setOpen(open) {
+    this.panel.hidden = !open;
+    this.toggle.setAttribute("aria-expanded", String(open));
+    try {
+      localStorage.setItem(CONTROLS_KEY, open ? "1" : "0");
+    } catch (_) {
+      // Not being able to remember the choice is not worth failing over.
+    }
+  },
+
+  destroyed() {
+    window.removeEventListener("keydown", this.onKey);
   },
 };

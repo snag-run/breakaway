@@ -18,7 +18,11 @@ defmodule Breakaway.World do
   def leave(space_id, user_id), do: safely(fn -> SpaceServer.leave(space_id, user_id) end)
 
   @doc "Record a movement intent — a vector of -1..1 on each axis."
-  def move(space_id, user_id, vec), do: safely(fn -> SpaceServer.set_input(space_id, user_id, vec) end)
+  def move(space_id, user_id, vec),
+    do: safely(fn -> SpaceServer.set_input(space_id, user_id, vec) end)
+
+  @doc "Use the nearest piece of furniture, or stop using the current one."
+  def interact(space_id, user_id), do: safely(fn -> SpaceServer.interact(space_id, user_id) end)
 
   def set_status(space_id, user_id, text),
     do: safely(fn -> SpaceServer.set_status(space_id, user_id, text) end)

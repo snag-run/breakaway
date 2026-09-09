@@ -96,6 +96,7 @@ defmodule Breakaway.Accounts.User do
       Discord, so the office can be run without OAuth credentials. Refuses
       unless `:dev_routes` is enabled.
       """
+
       accept [:display_name, :avatar_palette]
       argument :handle, :string, allow_nil?: false
 

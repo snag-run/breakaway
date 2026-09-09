@@ -114,6 +114,11 @@ defmodule BreakawayWeb.OfficeLive do
     end
   end
 
+  def handle_event("interact", _params, socket) do
+    World.interact(socket.assigns.space.id, socket.assigns.current_user.id)
+    {:noreply, socket}
+  end
+
   def handle_event("dismiss_voice", _params, socket), do: {:noreply, assign(socket, :voice, nil)}
 
   # --- events from the simulation ---------------------------------------------
@@ -168,6 +173,8 @@ defmodule BreakawayWeb.OfficeLive do
       end
 
     push_event(socket, "office:map", %{
+      interactions: Breakaway.World.Interactions.prompts(),
+      reach: Breakaway.World.Interactions.reach(),
       width: space.width,
       height: space.height,
       spawn_x: space.spawn_x,
@@ -220,6 +227,64 @@ defmodule BreakawayWeb.OfficeLive do
     |> Enum.sort_by(fn {slug, name, _} -> {slug == nil, name} end)
   end
 
+  @doc """
+  Keyboard reference. Rendered once and then owned by the client, so toggling it
+  costs no round trip and the choice is remembered across visits.
+  """
+  def controls_overlay(assigns) do
+    ~H"""
+    <div id="controls" phx-hook="ControlsOverlay" phx-update="ignore" class="pointer-events-auto">
+      <div
+        data-role="panel"
+        class="mb-2 w-64 rounded-xl bg-black/60 p-3.5 text-sm backdrop-blur"
+      >
+        <p class="mb-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Controls
+        </p>
+
+        <dl class="space-y-2">
+          <div :for={{keys, action} <- controls()} class="flex items-baseline justify-between gap-3">
+            <dt class="flex shrink-0 gap-1">
+              <kbd
+                :for={key <- keys}
+                class="rounded border border-white/15 bg-white/10 px-1.5 py-0.5 font-mono text-[11px] leading-none text-zinc-200"
+              >
+                {key}
+              </kbd>
+            </dt>
+            <dd class="text-right text-xs text-zinc-400">{action}</dd>
+          </div>
+        </dl>
+
+        <p class="mt-3 border-t border-white/10 pt-2.5 text-xs text-zinc-500">
+          Walk into a meeting room to join its Discord call.
+        </p>
+      </div>
+
+      <button
+        data-role="toggle"
+        type="button"
+        aria-expanded="true"
+        aria-label="Toggle controls"
+        class="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-sm font-semibold text-zinc-300 backdrop-blur hover:bg-black/75 hover:text-white"
+      >
+        ?
+      </button>
+    </div>
+    """
+  end
+
+  defp controls do
+    [
+      {["W", "A", "S", "D"], "Walk"},
+      {["↑", "←", "↓", "→"], "Walk"},
+      {["E"], "Use what you're standing by"},
+      {["Enter"], "Talk to the room"},
+      {["Esc"], "Back to walking"},
+      {["−", "+"], "Zoom out / in"},
+      {["?"], "Hide this panel"}
+    ]
+  end
 
   # --- components -------------------------------------------------------------
 

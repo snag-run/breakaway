@@ -35,3 +35,6 @@ breakaway-*.tar
 npm-debug.log
 /assets/node_modules/
 
+
+# Local secrets.
+.env

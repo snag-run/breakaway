@@ -150,7 +150,8 @@ defmodule Breakaway.Repo.Migrations.InitialSchema do
             type: :uuid,
             prefix: "public",
             on_delete: :delete_all
-          ), null: false
+          ),
+          null: false
     end
 
     create unique_index(:zones, [:space_id, :slug], name: "zones_unique_slug_per_space_index")

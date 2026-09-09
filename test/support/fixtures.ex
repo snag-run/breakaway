@@ -16,18 +16,18 @@ defmodule Breakaway.Fixtures do
   end
 
   @doc """
-  A 10x10 room: solid wall border, open concrete inside, and a 3x3 zone in the
-  top-left corner reached through a gap in its wall.
+  A 10x10 floor: solid border, open concrete inside, and a walled "cell" zone
+  entered through a single gap.
 
       0123456789
     0 ##########
     1 #........#
     2 #.###....#
-    3 #.#Z#....#     Z = inside "cell" zone
-    4 #.#.#....#     the zone's wall has a gap at (3,5)
-    5 #.#.#....#
+    3 #.#Z#....#     Z = tiles inside the "cell" zone
+    4 #.#Z#....#     @ = spawn
+    5 #.#Z.....#     the only way in is the gap at (4,5)
     6 #.###....#
-    7 #........#
+    7 #....@...#
     8 #........#
     9 ##########
   """
@@ -37,11 +37,17 @@ defmodule Breakaway.Fixtures do
 
     solid =
       MapSet.new([
-        {2, 2}, {3, 2}, {4, 2},
-        {2, 3}, {4, 3},
-        {2, 4}, {4, 4},
-        {2, 5}, {4, 5},
-        {2, 6}, {3, 6}, {4, 6}
+        {2, 2},
+        {3, 2},
+        {4, 2},
+        {2, 3},
+        {4, 3},
+        {2, 4},
+        {4, 4},
+        {2, 5},
+        {2, 6},
+        {3, 6},
+        {4, 6}
       ])
 
     ground =
@@ -61,8 +67,8 @@ defmodule Breakaway.Fixtures do
             slug: "test-#{System.unique_integer([:positive])}",
             width: 10,
             height: 10,
-            spawn_x: 6,
-            spawn_y: 4,
+            spawn_x: 5,
+            spawn_y: 7,
             ground: ground
           },
           attrs

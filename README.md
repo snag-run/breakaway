@@ -1,18 +1,137 @@
 # Breakaway
 
-To start your Phoenix server:
+A 2D virtual coworking office. Everyone gets an avatar on a shared tile floor;
+the meeting rooms are bound to Discord voice channels, so walking into a room
+puts you in that call and walking out takes you back.
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+Built with Phoenix LiveView and [Ash](https://ash-hq.org). Movement is
+simulated server-side and drawn on a canvas.
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+![the office](priv/static/images/tileset.png)
 
-Ready to run in production? Please [check our deployment guides](https://phoenix.hexdocs.pm/deployment.html).
+## Running it
 
-## Learn more
+You need Elixir 1.15+, Node (for the asset generator only), and PostgreSQL.
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://phoenix.hexdocs.pm/overview.html
-* Docs: https://phoenix.hexdocs.pm
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+```bash
+mix setup          # deps, database, migrations, assets, and the default office
+mix phx.server
+```
+
+Then open <http://localhost:4000>.
+
+**You don't need Discord to look around.** In development, visit
+`/dev/sign-in-as/<name>` — e.g. <http://localhost:4000/dev/sign-in-as/ada> — to
+get a local account. Open a second browser profile as another name to see two
+avatars share the floor. This route is compiled out unless `:dev_routes` is
+enabled, and the underlying action refuses to run without it.
+
+### Controls
+
+| Key | |
+| --- | --- |
+| `W` `A` `S` `D` / arrows | Walk |
+| `E` | Use the furniture you're standing next to |
+| `Enter` | Talk to the room |
+| `Esc` | Back to walking |
+| `−` `+` | Zoom out / in |
+| `?` | Show or hide the controls panel |
+
+## Connecting Discord
+
+Two separate things: an **OAuth app** so people can sign in, and a **bot** so
+the server can move them between voice channels.
+
+1. Create an application at
+   <https://discord.com/developers/applications>.
+
+2. **OAuth2 → Redirects**, add:
+
+   ```
+   http://localhost:4000/auth/user/discord/callback
+   ```
+
+   Copy the **Client ID** and **Client Secret**.
+
+3. **Bot → Reset Token**, copy the token.
+
+4. Invite the bot to your server. Under **OAuth2 → URL Generator** pick scope
+   `bot` and the permissions **View Channels** and **Move Members**, or use:
+
+   ```
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=16778240
+   ```
+
+5. Copy `.env.example` to `.env`, fill it in, and restart the server.
+
+6. Sign in, open **Discord** in the sidebar, and bind each meeting room to a
+   voice channel.
+
+### What actually happens when you walk into a room
+
+The simulation emits a zone transition, and `Breakaway.Discord.VoiceSync`
+decides what it means. The Discord call runs on a supervised task so a slow API
+never stalls the game tick.
+
+Discord **cannot pull somebody into a call who isn't already connected to
+voice** — there's no API for it. So the first hop is always manual: you get a
+"join" link, and from then on the server can move you between rooms freely.
+That's a platform limitation, not a missing feature.
+
+Leaving a room only moves you if `DISCORD_LOBBY_CHANNEL_ID` is set. Without it
+you stay in the call, on the assumption that silently hanging up on somebody
+mid-sentence is worse than leaving them connected.
+
+## How it fits together
+
+```
+Browser (canvas + LiveView hook)
+   │  movement intent, "use this", chat
+   ▼
+OfficeLive ──────────► SpaceServer (one per floor, 20Hz)
+   ▲  push_event            │  authoritative position + collision
+   │  positions, ticks      │
+   │                        ▼  zone entered / left
+   └──────────────────  VoiceSync ──► Discord REST
+```
+
+- **`Breakaway.Worlds`** — `Space` (the tile grid), `Zone` (rooms, optionally
+  bound to a voice channel), `Prop` (furniture). The default floor plan is
+  generated in `Breakaway.Worlds.DefaultOffice`.
+- **`Breakaway.World.SpaceServer`** — one GenServer per floor. Clients send a
+  direction vector, never a position, so a tampered client can't walk through
+  walls or teleport into a meeting.
+- **`Breakaway.Accounts`** — Discord-only sign-in. A `UserIdentity` record keys
+  the account on Discord's `id` claim rather than on email, so a matching email
+  address can never take over somebody else's account.
+
+## The 2D assets
+
+The spritesheets are generated, not drawn by hand — `assets/gen` contains a
+small dependency-free PNG encoder and a pixel-art surface:
+
+```bash
+mix assets.sprites
+```
+
+This writes `tileset.png`, `furniture.png`, `avatars.png` (four directions, a
+four-frame walk cycle, six colourways) and `atlas.json` into
+`priv/static/images`.
+
+`atlas.json` is the single source of truth. `Breakaway.Worlds.Atlas` reads it at
+compile time, so tile ids, which tiles are solid, and how many tiles each piece
+of furniture occupies cannot drift from the art. Editing a sprite and
+regenerating updates the collision map with it.
+
+To change the look, edit `assets/gen/tiles.mjs`, `furniture.mjs` or
+`avatars.mjs` and re-run the task.
+
+## Tests
+
+```bash
+mix test
+```
+
+Discord is never called over the network; `Req.Test` stubs it, and the tests
+cover the cases that matter in practice — someone not connected to voice, a bot
+missing the Move Members permission, and auto-move turned off.

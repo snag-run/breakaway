@@ -35,4 +35,11 @@ defmodule BreakawayWeb.ConnCase do
     Breakaway.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc "Puts `user` in the session the way a completed sign-in would."
+  def log_in_user(conn, user) do
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> AshAuthentication.Plug.Helpers.store_in_session(user)
+  end
 end

@@ -1,11 +1,9 @@
-# Script for populating the database. You can run it as:
+# Seeds the default office floor plan.
 #
-#     mix run priv/repo/seeds.exs
-#
-# Inside the script, you can read and write to any of your
-# repositories directly:
-#
-#     Breakaway.Repo.insert!(%Breakaway.SomeSchema{})
-#
-# We recommend using the bang functions (`insert!`, `update!`
-# and so on) as they will fail if something goes wrong.
+# Run with `mix run priv/repo/seeds.exs`, or via `mix setup`. Safe to re-run:
+# the space and zones upsert on their slug and the furniture is replaced, while
+# any Discord channel bindings on the zones are left alone.
+
+space = Breakaway.Worlds.Seeder.seed_default_office!()
+
+IO.puts("Seeded #{space.name} (#{space.width}x#{space.height})")

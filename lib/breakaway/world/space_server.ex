@@ -16,6 +16,7 @@ defmodule Breakaway.World.SpaceServer do
 
   alias Breakaway.World.Avatar
   alias Breakaway.Worlds
+  alias Breakaway.World.Interactions
   alias Breakaway.Worlds.Atlas
 
   @tick_ms 50
@@ -43,6 +44,7 @@ defmodule Breakaway.World.SpaceServer do
   def leave(space_id, user_id), do: call(space_id, {:leave, user_id})
   def set_input(space_id, user_id, vec), do: cast(space_id, {:input, user_id, vec})
   def set_status(space_id, user_id, text), do: call(space_id, {:status, user_id, text})
+  def interact(space_id, user_id), do: call(space_id, {:interact, user_id})
   def snapshot(space_id), do: call(space_id, :snapshot)
   def zone_occupancy(space_id), do: call(space_id, :zone_occupancy)
 
@@ -56,11 +58,14 @@ defmodule Breakaway.World.SpaceServer do
     space_id = Keyword.fetch!(opts, :space_id)
 
     with {:ok, space} <- Worlds.get_space(space_id, authorize?: false),
-         {:ok, zones} <- Worlds.list_zones(query: [filter: [space_id: space_id]], authorize?: false),
-         {:ok, props} <- Worlds.list_props(query: [filter: [space_id: space_id]], authorize?: false) do
+         {:ok, zones} <-
+           Worlds.list_zones(query: [filter: [space_id: space_id]], authorize?: false),
+         {:ok, props} <-
+           Worlds.list_props(query: [filter: [space_id: space_id]], authorize?: false) do
       state = %{
         space: space,
         zones: zones,
+        props: props,
         collision: collision_grid(space, props),
         avatars: %{},
         dirty?: false,
@@ -113,6 +118,29 @@ defmodule Breakaway.World.SpaceServer do
       avatar ->
         state = put_in(state.avatars[user_id], %{avatar | status: text})
         {:reply, :ok, %{state | dirty?: true}}
+    end
+  end
+
+  # Pressing E: start the nearest activity, or stop the current one.
+  def handle_call({:interact, user_id}, _from, state) do
+    case state.avatars[user_id] do
+      nil ->
+        {:reply, {:error, :not_here}, state}
+
+      %{activity: activity} = avatar when not is_nil(activity) ->
+        state = put_in(state.avatars[user_id], %{avatar | activity: nil})
+        {:reply, {:ok, nil}, %{state | dirty?: true}}
+
+      avatar ->
+        case nearest_interactable(state, avatar) do
+          nil ->
+            {:reply, {:error, :nothing_nearby}, state}
+
+          prop ->
+            activity = Interactions.activity(prop.kind)
+            state = put_in(state.avatars[user_id], %{avatar | activity: activity})
+            {:reply, {:ok, activity}, %{state | dirty?: true}}
+        end
     end
   end
 
@@ -170,7 +198,10 @@ defmodule Breakaway.World.SpaceServer do
       trans = if zone != avatar.zone, do: [{next, avatar.zone, zone} | trans], else: trans
       next = %{next | zone: zone}
 
-      {Map.put(acc, id, next), trans, moved? or next.x != avatar.x or next.y != avatar.y}
+      moved_now? = next.x != avatar.x or next.y != avatar.y
+      next = if moved_now? and next.activity, do: maybe_end_activity(state, next), else: next
+
+      {Map.put(acc, id, next), trans, moved? or moved_now?}
     end)
   end
 
@@ -248,6 +279,31 @@ defmodule Breakaway.World.SpaceServer do
   end
 
   defp offsets(r), do: for(dx <- -r..r, dy <- -r..r, abs(dx) == r or abs(dy) == r, do: {dx, dy})
+
+  # --- interaction ------------------------------------------------------------
+
+  defp nearest_interactable(state, avatar) do
+    state.props
+    |> Enum.filter(&Interactions.interactable?(&1.kind))
+    |> Enum.map(&{&1, distance_to(&1, avatar)})
+    |> Enum.filter(fn {_prop, d} -> d <= Interactions.reach() end)
+    |> Enum.min_by(fn {_prop, d} -> d end, fn -> nil end)
+    |> case do
+      {prop, _} -> prop
+      nil -> nil
+    end
+  end
+
+  defp maybe_end_activity(state, avatar) do
+    if nearest_interactable(state, avatar), do: avatar, else: %{avatar | activity: nil}
+  end
+
+  defp distance_to(prop, avatar) do
+    %{w: w, h: h} = Atlas.prop_meta(prop.kind)
+    dx = prop.x + w / 2 - avatar.x
+    dy = prop.y + h / 2 - avatar.y
+    :math.sqrt(dx * dx + dy * dy)
+  end
 
   # --- zones ------------------------------------------------------------------
 

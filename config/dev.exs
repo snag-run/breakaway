@@ -83,7 +83,8 @@ config :swoosh, :api_client, false
 config :breakaway, :discord,
   client_id: System.get_env("DISCORD_CLIENT_ID"),
   client_secret: System.get_env("DISCORD_CLIENT_SECRET"),
-  redirect_uri: System.get_env("DISCORD_REDIRECT_URI") || "http://localhost:4000/auth/user/discord/callback",
+  redirect_uri:
+    System.get_env("DISCORD_REDIRECT_URI") || "http://localhost:4000/auth/user/discord/callback",
   bot_token: System.get_env("DISCORD_BOT_TOKEN"),
   guild_id: System.get_env("DISCORD_GUILD_ID"),
   lobby_channel_id: System.get_env("DISCORD_LOBBY_CHANNEL_ID")
