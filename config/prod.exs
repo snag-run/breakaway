@@ -7,14 +7,20 @@ import Config
 # before starting your production server.
 config :breakaway, BreakawayWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
-# Note `:force_ssl` is required to be set at compile-time.
+# Force using SSL in production. This also sets the "strict-security-transport"
+# header, known as HSTS. Note `:force_ssl` is required to be set at compile-time.
+#
+# /health must be excluded. A platform health check arrives over plain HTTP on
+# the internal port with no x-forwarded-proto, so without this it is answered
+# with a 301 to PHX_HOST. The checker wants 200, marks the machine critical, and
+# the proxy then has no healthy instance to route to — the whole app serves 503
+# while the app itself is perfectly fine. Plug.SSL runs these through
+# `Plug.Router.Utils.split/1`, so the leading slash is right.
 config :breakaway, BreakawayWeb.Endpoint,
   force_ssl: [
     rewrite_on: [:x_forwarded_proto],
     exclude: [
-      # paths: ["/health"],
+      paths: ["/health"],
       hosts: ["localhost", "127.0.0.1"]
     ]
   ]
